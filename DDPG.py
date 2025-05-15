@@ -2,20 +2,22 @@
 # Need a class for a target Q network (function of state and action)
 # We will use batch normalization
 # The policy is deterministic, how to handle explore exploitation?
-# Deterministic policy gradient means outputs the acutal action instead of a probability distribution
+# Deterministic policy gradient means outputs the actual action instead of a probability distribution
 # Will need a way to bound the action to the environment limits
 # We have two actors and two critics networks, a target for each
-# Updates are done in a soft way, according to theta_prime = tau * theta + (1-tau) * theta_prime, wth tau << 1
+# Updates are done in a soft way, according to theta_prime = tau * theta + (1-tau) * theta_prime, with tau << 1
 # The target actor is just the evaluated actor plus noise
 # They used Ornstein-Uhlenbeck process for exploration noise -> will need a class for the noise
 
 import os
 import numpy as np
-import tensorflow as tf
+np.bool8 = bool
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 from tensorflow.keras.initializers import RandomUniform
 
 class OrnsteinUhlenbeckActionNoise:
-    def __init__(self, mu, sigma, theta=0.2, dt=1e-2, x0=None):
+    def __init__(self, mu, sigma=0.2, theta=0.15, dt=1e-2, x0=None):
         self.mu = mu
         self.sigma = sigma
         self.theta = theta
@@ -29,12 +31,12 @@ class OrnsteinUhlenbeckActionNoise:
         self.x_prev = self.x0
 
     def __call__(self):
-        x = (self.x_prev + 
-             self.theta * (self.mu - self.x_prev) * self.dt + 
+        x = (self.x_prev +
+             self.theta * (self.mu - self.x_prev) * self.dt +
              self.sigma * np.sqrt(self.dt) * np.random.normal(size=self.mu.shape))
         self.x_prev = x
         return x
-    
+
 class ReplayBuffer(object):
     def __init__(self, max_size, input_shape, n_actions):
         self.mem_size = max_size
@@ -62,14 +64,13 @@ class ReplayBuffer(object):
         rewards = self.reward_memory[batch]
         new_states = self.new_state_memory[batch]
         terminal = self.terminal_memory[batch]
-
         return states, actions, rewards, new_states, terminal
 
 class ActorNetwork(object):
     def __init__(self, lr, n_actions, input_dims, name, sess, fcl_dims, fc2_dims, action_bound, batch_size=64, chkpt_dir='tmp/ddpg'):
         self.lr = lr
         self.n_actions = n_actions
-        self.names = name
+        self.name = name
         self.input_dims = input_dims
         self.fcl_dims = fcl_dims
         self.fc2_dims = fc2_dims
@@ -80,10 +81,9 @@ class ActorNetwork(object):
         self.build_network()
         self.params = tf.trainable_variables(scope=self.name)
         self.saver = tf.train.Saver()
-        self.checpoint_file = os.path.join(chkpt_dir, name + '_ddpg.ckpt')
+        self.checkpoint_file = os.path.join(chkpt_dir, name + '_ddpg.ckpt')
 
         self.unnormalized_actor_gradients = tf.gradients(self.mu, self.params, -self.action_gradient)
-
         self.actor_gradients = list(map(lambda x: tf.div(x, self.batch_size), self.unnormalized_actor_gradients))
         self.optimize = tf.train.AdamOptimizer(self.lr).apply_gradients(zip(self.actor_gradients, self.params))
 
@@ -93,27 +93,42 @@ class ActorNetwork(object):
             self.action_gradient = tf.placeholder(tf.float32, [None, self.n_actions], name='action_gradient')
 
             f1 = 1 / np.sqrt(self.fcl_dims)
-            dense1 = tf.layers.dense(self.input, units=self.fc1dims, kernal_initializer=random_uniform(-f1, f1), bias_initializer=random_uniform(-f1, f1), name='dense1')
-
-            batch1 = tf.layers.batch_normalization(dense1)
+            dense1 = tf.keras.layers.Dense(
+                self.fcl_dims,
+                kernel_initializer=RandomUniform(-f1, f1),
+                bias_initializer=RandomUniform(-f1, f1),
+                name='dense1'
+            )(self.input)
+            batch1 = tf.keras.layers.BatchNormalization()(dense1)
             activation1 = tf.nn.relu(batch1)
 
             f2 = 1 / np.sqrt(self.fc2_dims)
-            dense2 = tf.layers.dense(activation1, units=self.fc2_dims, kernal_initializer=random_uniform(-f2, f2), bias_initializer=random_uniform(-f2, f2), name='dense2')
-            batch2 = tf.layers.batch_normalization(dense2)
+            dense2 = tf.keras.layers.Dense(
+                self.fc2_dims,
+                kernel_initializer=RandomUniform(-f2, f2),
+                bias_initializer=RandomUniform(-f2, f2),
+                name='dense2'
+            )(activation1)
+            batch2 = tf.keras.layers.BatchNormalization()(dense2)
             activation2 = tf.nn.relu(batch2)
 
             f3 = 0.003
-
-            mu = tf.layers.dense(activation2, units=self.n_actions, activation='tanh', kernal_initializer=random_uniform(-f3, f3), bias_initializer=random_uniform(-f3, f3), name='mu')
+            mu = tf.keras.layers.Dense(
+                self.n_actions,
+                activation='tanh',
+                kernel_initializer=RandomUniform(-f3, f3),
+                bias_initializer=RandomUniform(-f3, f3),
+                name='mu'
+            )(activation2)
 
             self.mu = tf.multiply(mu, self.action_bound, name='scaled_mu')
 
     def predict(self, inputs):
         return self.sess.run(self.mu, feed_dict={self.input: inputs})
-    
+
     def train(self, inputs, gradients):
         return self.sess.run(self.optimize, feed_dict={self.input: inputs, self.action_gradient: gradients})
+
     def save_checkpoint(self):
         print('... saving checkpoint ...')
         self.saver.save(self.sess, self.checkpoint_file)
@@ -126,7 +141,7 @@ class Critic(object):
     def __init__(self, lr, n_actions, input_dims, name, sess, fcl_dims, fc2_dims, action_bound, batch_size=64, chkpt_dir='tmp/ddpg'):
         self.lr = lr
         self.n_actions = n_actions
-        self.names = name
+        self.name = name
         self.input_dims = input_dims
         self.fcl_dims = fcl_dims
         self.fc2_dims = fc2_dims
@@ -137,7 +152,7 @@ class Critic(object):
         self.build_network()
         self.params = tf.trainable_variables(scope=self.name)
         self.saver = tf.train.Saver()
-        self.checpoint_file = os.path.join(chkpt_dir, name + '_ddpg.ckpt')
+        self.checkpoint_file = os.path.join(chkpt_dir, name + '_ddpg.ckpt')
 
         self.optimize = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
         self.actor_gradients = tf.gradients(self.q, self.action, name='actor_gradients')
@@ -149,33 +164,55 @@ class Critic(object):
             self.q_target = tf.placeholder(tf.float32, [None, 1], name='q_target')
 
             f1 = 1 / np.sqrt(self.fcl_dims)
-            dense1 = tf.layers.dense(self.input, units=self.fcl_dims, kernal_initializer=random_uniform(-f1, f1), bias_initializer=random_uniform(-f1, f1), name='dense1')
-            batch1 = tf.layers.batch_normalization(dense1)
+            dense1 = tf.keras.layers.Dense(
+                self.fcl_dims,
+                kernel_initializer=RandomUniform(-f1, f1),
+                bias_initializer=RandomUniform(-f1, f1),
+                name='dense1'
+            )(self.input)
+            batch1 = tf.keras.layers.BatchNormalization()(dense1)
             activation1 = tf.nn.relu(batch1)
 
             f2 = 1 / np.sqrt(self.fc2_dims)
-            dense2 = tf.layers.dense(activation1, units=self.fc2_dims, kernal_initializer=random_uniform(-f2, f2), bias_initializer=random_uniform(-f2, f2), name='dense2')
-            batch2 = tf.layers.batch_normalization(dense2)
+            dense2 = tf.keras.layers.Dense(
+                self.fc2_dims,
+                kernel_initializer=RandomUniform(-f2, f2),
+                bias_initializer=RandomUniform(-f2, f2),
+                name='dense2'
+            )(activation1)
+            batch2 = tf.keras.layers.BatchNormalization()(dense2)
 
-            action_in = tf.layers.dense(self.action, units=self.fc2_dims, activation='relu')
+            action_in = tf.keras.layers.Dense(
+                self.fc2_dims,
+                activation='relu'
+            )(self.action)
 
             state_action = tf.add(batch2, action_in)
             state_action = tf.nn.relu(state_action)
 
             f3 = 0.003
-            self.q = tf.layers.dense(state_action, units=1, kernal_initializer=random_uniform(-f3, f3), bias_initializer=random_uniform(-f3, f3), kernal_regularizer=tf.keras.regularizers.l2(0.01), name='q')
+            self.q = tf.keras.layers.Dense(
+                1,
+                kernel_initializer=RandomUniform(-f3, f3),
+                bias_initializer=RandomUniform(-f3, f3),
+                kernel_regularizer=tf.keras.regularizers.l2(0.01),
+                name='q'
+            )(state_action)
             self.loss = tf.losses.mean_squared_error(self.q_target, self.q)
 
     def predict(self, inputs, actions):
         return self.sess.run(self.q, feed_dict={self.input: inputs, self.action: actions})
+
     def train(self, inputs, actions, target):
         return self.sess.run(self.optimize, feed_dict={self.input: inputs, self.action: actions, self.q_target: target})
-    
+
     def get_action_gradients(self, inputs, actions):
         return self.sess.run(self.actor_gradients, feed_dict={self.input: inputs, self.action: actions})
+
     def save_checkpoint(self):
         print('... saving checkpoint ...')
         self.saver.save(self.sess, self.checkpoint_file)
+
     def load_checkpoint(self):
         print('... loading checkpoint ...')
         self.saver.restore(self.sess, self.checkpoint_file)
@@ -225,15 +262,28 @@ class DDPGAgent(object):
             self.target_actor.sess.run(self.update_actor)
 
     def remember(self, state, action, reward, state_, done):
+        # Extract observation if input is a tuple (obs, info)
+        if isinstance(state, tuple):
+            state = state[0]
+        if isinstance(state_, tuple):
+            state_ = state_[0]
+        state = np.array(state, dtype=np.float32)
+        action = np.array(action, dtype=np.float32)
+        state_ = np.array(state_, dtype=np.float32)
         self.memory.store_transition(state, action, reward, state_, done)
 
     def choose_action(self, observation):
-        state = observation[np.newaxis, :]
+        # Handle Gym's new API: observation may be a tuple (obs, info)
+        if isinstance(observation, tuple):
+            obs = observation[0]
+        else:
+            obs = observation
+        state = np.array(obs)[np.newaxis, :]
         mu = self.actor.predict(state)
         noise = self.noise()
         mu_prime = mu + noise
         return mu_prime[0]
-    
+
     def learn(self):
         if self.memory.mem_cntr < self.batch_size:
             return
