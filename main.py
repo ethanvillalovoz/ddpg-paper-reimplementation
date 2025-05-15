@@ -1,4 +1,4 @@
-from DDPG import DDPGAgent
+from src.noise import DDPGAgent
 import gym
 import numpy as np
 
