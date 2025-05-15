@@ -1,28 +1,53 @@
-from src.noise import DDPGAgent
+"""
+main.py
+
+Entry point for training the DDPG agent on the Pendulum-v1 environment.
+"""
+
 import gym
 import numpy as np
-
 import matplotlib.pyplot as plt
-import numpy as np
+from src.ddpg_agent import DDPGAgent
 
-def plotLearning(scores, filename, window_size=100):
+def plot_learning(scores, filename, window_size=100):
+    """
+    Plot the running average of scores and save to file.
+    """
     N = len(scores)
     running_avg = np.empty(N)
     for t in range(N):
         running_avg[t] = np.mean(scores[max(0, t-window_size):(t+1)])
     plt.plot(running_avg)
-    plt.title('Running Average of Previous {} Scores'.format(window_size))
+    plt.title(f'Running Average of Previous {window_size} Scores')
+    plt.xlabel('Episode')
+    plt.ylabel('Score')
     plt.savefig(filename)
     plt.close()
 
 if __name__ == "__main__":
-    env = gym.make("Pendulum-v1")
-    agent = DDPGAgent(alpha=0.001, beta=0.001, input_dims=[3], tau=0.005,
-                      env=env, batch_size=64, layer1_size=400,
-                      layer2_size=300, n_actions=1)
-    np.random.seed(0)
+    # Hyperparameters
+    ENV_NAME = "Pendulum-v1"
+    EPISODES = 1000
+    ALPHA = 0.001
+    BETA = 0.001
+    TAU = 0.005
+    BATCH_SIZE = 64
+    LAYER1_SIZE = 400
+    LAYER2_SIZE = 300
+    N_ACTIONS = 1
+    INPUT_DIMS = [3]
+    SEED = 0
+
+    env = gym.make(ENV_NAME)
+    np.random.seed(SEED)
+    agent = DDPGAgent(
+        alpha=ALPHA, beta=BETA, input_dims=INPUT_DIMS, tau=TAU,
+        env=env, batch_size=BATCH_SIZE, layer1_size=LAYER1_SIZE,
+        layer2_size=LAYER2_SIZE, n_actions=N_ACTIONS
+    )
+
     scores = []
-    for i in range(1000):
+    for i in range(EPISODES):
         score = 0
         done = False
         obs = env.reset()
@@ -38,5 +63,4 @@ if __name__ == "__main__":
         avg_score = np.mean(scores[-100:])
         print(f"Episode {i}, Score: {score:.2f}, Avg Score: {avg_score:.2f}")
 
-    filename = "Pendulum.png"
-    plotLearning(scores, filename=filename, window_size=100)
+    plot_learning(scores, filename="Pendulum.png", window_size=100)

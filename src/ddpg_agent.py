@@ -1,5 +1,25 @@
-class DDPGAgent(object):
-    def __init__(self, alpha, beta, input_dims, tau, env, gamma=0.99, n_actions=2, max_size=1000000, batch_size=64, layer1_size=400, layer2_size=300):
+"""
+ddpg_agent.py
+
+Defines the DDPGAgent class for training and interacting with the environment.
+"""
+
+import numpy as np
+import tensorflow.compat.v1 as tf
+from .networks import ActorNetwork, Critic
+from .buffer import ReplayBuffer
+from .noise import OrnsteinUhlenbeckActionNoise
+
+class DDPGAgent:
+    """
+    Deep Deterministic Policy Gradient (DDPG) Agent.
+    Handles training, action selection, and model saving/loading.
+    """
+    def __init__(
+        self, alpha: float, beta: float, input_dims: list, tau: float, env,
+        gamma: float = 0.99, n_actions: int = 2, max_size: int = 1000000,
+        batch_size: int = 64, layer1_size: int = 400, layer2_size: int = 300
+    ):
         self.gamma = gamma
         self.tau = tau
         self.n_actions = n_actions
@@ -9,9 +29,9 @@ class DDPGAgent(object):
         self.sess = tf.Session()
         self.memory = ReplayBuffer(max_size, input_dims, n_actions)
         self.actor = ActorNetwork(alpha, n_actions, input_dims, 'Actor', self.sess, layer1_size, layer2_size, action_bound=env.action_space.high)
-        self.critic = Critic(beta, n_actions, input_dims, 'Critic', self.sess, layer1_size, layer2_size, action_bound=env.action_space.high)
+        self.critic = Critic(beta, n_actions, input_dims, 'Critic', self.sess, layer1_size, layer2_size)
         self.target_actor = ActorNetwork(alpha, n_actions, input_dims, 'TargetActor', self.sess, layer1_size, layer2_size, action_bound=env.action_space.high)
-        self.target_critic = Critic(beta, n_actions, input_dims, 'TargetCritic', self.sess, layer1_size, layer2_size, action_bound=env.action_space.high)
+        self.target_critic = Critic(beta, n_actions, input_dims, 'TargetCritic', self.sess, layer1_size, layer2_size)
         self.noise = OrnsteinUhlenbeckActionNoise(mu=np.zeros(n_actions))
 
         self.target_critic_params = tf.trainable_variables(scope='TargetCritic')
@@ -31,7 +51,11 @@ class DDPGAgent(object):
         self.sess.run(tf.global_variables_initializer())
         self.update_network_parameters(first=True)
 
-    def update_network_parameters(self, first=False):
+    def update_network_parameters(self, first: bool = False) -> None:
+        """
+        Soft update target networks.
+        If first=True, copy weights directly.
+        """
         if first:
             old_tau = self.tau
             self.tau = 1
@@ -42,8 +66,11 @@ class DDPGAgent(object):
             self.target_critic.sess.run(self.update_critic)
             self.target_actor.sess.run(self.update_actor)
 
-    def remember(self, state, action, reward, state_, done):
-        # Extract observation if input is a tuple (obs, info)
+    def remember(self, state, action, reward, state_, done) -> None:
+        """
+        Store a transition in the replay buffer.
+        Handles Gym's new API where obs may be a tuple.
+        """
         if isinstance(state, tuple):
             state = state[0]
         if isinstance(state_, tuple):
@@ -53,8 +80,11 @@ class DDPGAgent(object):
         state_ = np.array(state_, dtype=np.float32)
         self.memory.store_transition(state, action, reward, state_, done)
 
-    def choose_action(self, observation):
-        # Handle Gym's new API: observation may be a tuple (obs, info)
+    def choose_action(self, observation) -> np.ndarray:
+        """
+        Select an action for a given observation, adding exploration noise.
+        Handles Gym's new API where obs may be a tuple.
+        """
         if isinstance(observation, tuple):
             obs = observation[0]
         else:
@@ -65,7 +95,10 @@ class DDPGAgent(object):
         mu_prime = mu + noise
         return mu_prime[0]
 
-    def learn(self):
+    def learn(self) -> None:
+        """
+        Sample a batch from memory and update the actor and critic networks.
+        """
         if self.memory.mem_cntr < self.batch_size:
             return
         state, action, reward, new_state, done = self.memory.sample_buffer(self.batch_size)
@@ -82,14 +115,16 @@ class DDPGAgent(object):
 
         self.update_network_parameters()
 
-    def save_models(self):
+    def save_models(self) -> None:
+        """Save all model weights."""
         print('... saving models ...')
         self.actor.save_checkpoint()
         self.critic.save_checkpoint()
         self.target_actor.save_checkpoint()
         self.target_critic.save_checkpoint()
 
-    def load_models(self):
+    def load_models(self) -> None:
+        """Load all model weights."""
         print('... loading models ...')
         self.actor.load_checkpoint()
         self.critic.load_checkpoint()

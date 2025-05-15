@@ -1,13 +1,9 @@
-# Need a replay buffer class
-# Need a class for a target Q network (function of state and action)
-# We will use batch normalization
-# The policy is deterministic, how to handle explore exploitation?
-# Deterministic policy gradient means outputs the actual action instead of a probability distribution
-# Will need a way to bound the action to the environment limits
-# We have two actors and two critics networks, a target for each
-# Updates are done in a soft way, according to theta_prime = tau * theta + (1-tau) * theta_prime, with tau << 1
-# The target actor is just the evaluated actor plus noise
-# They used Ornstein-Uhlenbeck process for exploration noise -> will need a class for the noise
+"""
+noise.py
+
+Contains the Ornstein-Uhlenbeck process for temporally correlated exploration noise,
+as used in the DDPG algorithm.
+"""
 
 import os
 import numpy as np
@@ -17,7 +13,17 @@ tf.disable_v2_behavior()
 from tensorflow.keras.initializers import RandomUniform
 
 class OrnsteinUhlenbeckActionNoise:
-    def __init__(self, mu, sigma=0.2, theta=0.15, dt=1e-2, x0=None):
+    """
+    Ornstein-Uhlenbeck process for generating temporally correlated noise.
+
+    Args:
+        mu (np.ndarray): The mean of the noise process.
+        sigma (float): The volatility parameter.
+        theta (float): The speed of mean reversion.
+        dt (float): The time step.
+        x0 (np.ndarray or None): Initial state.
+    """
+    def __init__(self, mu: np.ndarray, sigma: float = 0.2, theta: float = 0.15, dt: float = 1e-2, x0: np.ndarray = None):
         self.mu = mu
         self.sigma = sigma
         self.theta = theta
@@ -25,12 +31,19 @@ class OrnsteinUhlenbeckActionNoise:
         self.x0 = x0
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
+        """Reset the process to the initial state."""
         if self.x0 is None:
             self.x0 = np.zeros_like(self.mu)
         self.x_prev = self.x0
 
-    def __call__(self):
+    def __call__(self) -> np.ndarray:
+        """
+        Generate the next noise value.
+
+        Returns:
+            np.ndarray: The next noise value.
+        """
         x = (self.x_prev +
              self.theta * (self.mu - self.x_prev) * self.dt +
              self.sigma * np.sqrt(self.dt) * np.random.normal(size=self.mu.shape))
