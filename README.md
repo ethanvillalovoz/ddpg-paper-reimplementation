@@ -129,12 +129,6 @@ python main.py
 
 ---
 
-## Example Results
-
-![Learning Curve](results/Pendulum_alpha0.0005_beta0.0001_tau0.01_bs128_l1400_l2300_episodes500.png)
-
----
-
 ## Results & Analysis
 
 See [ANALYSIS.md](ANALYSIS.md) for plots, tables, and a comparison with the original DDPG paper.
