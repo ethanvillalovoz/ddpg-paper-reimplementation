@@ -1,0 +1,11 @@
+channels:
+  - defaults
+dependencies:
+  - python=3.9
+  - pip
+  - pip:
+      - tensorflow
+      - gym
+      - matplotlib
+      - numpy
+      - pandas

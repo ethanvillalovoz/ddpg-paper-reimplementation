@@ -1,0 +1,12 @@
+# DDPG Project Banner
+
+This is a placeholder for a project banner or logo. You can replace this with a custom image (e.g., PNG, SVG) and reference it in your README.md.
+
+Example usage in README.md:
+
+```
+<!-- Project Banner -->
+![DDPG Banner](assets/banner.png)
+```
+
+You can use any of your result plots as a temporary banner, or design a custom one for a more professional look.

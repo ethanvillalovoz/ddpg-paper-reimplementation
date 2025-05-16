@@ -1,18 +1,19 @@
 """
 ddpg_agent.py
 
-Defines the DDPGAgent class for training and interacting with the environment.
+TensorFlow 2.x version: DDPGAgent class for training and interacting with the environment.
 """
 
 import numpy as np
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
+print("Logical devices:", tf.config.list_logical_devices())
 from .networks import ActorNetwork, Critic
 from .buffer import ReplayBuffer
 from .noise import OrnsteinUhlenbeckActionNoise
 
 class DDPGAgent:
     """
-    Deep Deterministic Policy Gradient (DDPG) Agent.
+    Deep Deterministic Policy Gradient (DDPG) Agent using TensorFlow 2.x.
     Handles training, action selection, and model saving/loading.
     """
     def __init__(
@@ -26,107 +27,79 @@ class DDPGAgent:
         self.max_size = max_size
         self.batch_size = batch_size
         self.env = env
-        self.sess = tf.Session()
+
         self.memory = ReplayBuffer(max_size, input_dims, n_actions)
-        self.actor = ActorNetwork(alpha, n_actions, input_dims, 'Actor', self.sess, layer1_size, layer2_size, action_bound=env.action_space.high)
-        self.critic = Critic(beta, n_actions, input_dims, 'Critic', self.sess, layer1_size, layer2_size)
-        self.target_actor = ActorNetwork(alpha, n_actions, input_dims, 'TargetActor', self.sess, layer1_size, layer2_size, action_bound=env.action_space.high)
-        self.target_critic = Critic(beta, n_actions, input_dims, 'TargetCritic', self.sess, layer1_size, layer2_size)
+        self.actor = ActorNetwork(n_actions, layer1_size, layer2_size, input_dims, env.action_space.high)
+        self.critic = Critic(layer1_size, layer2_size, input_dims, n_actions)
+        self.target_actor = ActorNetwork(n_actions, layer1_size, layer2_size, input_dims, env.action_space.high)
+        self.target_critic = Critic(layer1_size, layer2_size, input_dims, n_actions)
         self.noise = OrnsteinUhlenbeckActionNoise(mu=np.zeros(n_actions))
 
-        self.target_critic_params = tf.trainable_variables(scope='TargetCritic')
-        self.update_critic = [
-            self.target_critic_params[i].assign(
-                tf.multiply(self.critic.params[i], self.tau) +
-                tf.multiply(self.target_critic.params[i], 1 - self.tau)
-            ) for i in range(len(self.target_critic_params))
-        ]
+        # Optimizers
+        self.actor_optimizer = tf.keras.optimizers.Adam(learning_rate=alpha)
+        self.critic_optimizer = tf.keras.optimizers.Adam(learning_rate=beta)
 
-        self.update_actor = [
-            self.target_actor.params[i].assign(
-                tf.multiply(self.actor.params[i], self.tau) +
-                tf.multiply(self.target_actor.params[i], 1 - self.tau)
-            ) for i in range(len(self.target_actor.params))
-        ]
-        self.sess.run(tf.global_variables_initializer())
-        self.update_network_parameters(first=True)
+        # Initialize target networks
+        self.update_network_parameters(tau=1.0)
 
-    def update_network_parameters(self, first: bool = False) -> None:
+    def update_network_parameters(self, tau=None):
         """
         Soft update target networks.
-        If first=True, copy weights directly.
         """
-        if first:
-            old_tau = self.tau
-            self.tau = 1
-            self.target_critic.sess.run(self.update_critic)
-            self.target_actor.sess.run(self.update_actor)
-            self.tau = old_tau
-        else:
-            self.target_critic.sess.run(self.update_critic)
-            self.target_actor.sess.run(self.update_actor)
+        if tau is None:
+            tau = self.tau
+        # Update actor
+        for target_param, param in zip(self.target_actor.trainable_variables, self.actor.trainable_variables):
+            target_param.assign(tau * param + (1 - tau) * target_param)
+        # Update critic
+        for target_param, param in zip(self.target_critic.trainable_variables, self.critic.trainable_variables):
+            target_param.assign(tau * param + (1 - tau) * target_param)
 
-    def remember(self, state, action, reward, state_, done) -> None:
-        """
-        Store a transition in the replay buffer.
-        Handles Gym's new API where obs may be a tuple.
-        """
-        if isinstance(state, tuple):
-            state = state[0]
-        if isinstance(state_, tuple):
-            state_ = state_[0]
-        state = np.array(state, dtype=np.float32)
-        action = np.array(action, dtype=np.float32)
-        state_ = np.array(state_, dtype=np.float32)
+    def remember(self, state, action, reward, state_, done):
         self.memory.store_transition(state, action, reward, state_, done)
 
-    def choose_action(self, observation) -> np.ndarray:
-        """
-        Select an action for a given observation, adding exploration noise.
-        Handles Gym's new API where obs may be a tuple.
-        """
-        if isinstance(observation, tuple):
-            obs = observation[0]
-        else:
-            obs = observation
-        state = np.array(obs)[np.newaxis, :]
-        mu = self.actor.predict(state)
+    def choose_action(self, observation):
+        state = np.array(observation, dtype=np.float32)[np.newaxis, :]
+        mu = self.actor(state)
+        mu = mu.numpy()[0]
         noise = self.noise()
         mu_prime = mu + noise
-        return mu_prime[0]
+        return np.clip(mu_prime, self.env.action_space.low, self.env.action_space.high)
 
-    def learn(self) -> None:
-        """
-        Sample a batch from memory and update the actor and critic networks.
-        """
+    @tf.function
+    def train_step(self, state, action, reward, new_state, done):
+        # Critic update
+        with tf.GradientTape() as tape:
+            target_actions = self.target_actor(new_state)
+            target_critic_value = tf.squeeze(self.target_critic(new_state, target_actions), 1)
+            y = reward + self.gamma * target_critic_value * (1 - done)
+            critic_value = tf.squeeze(self.critic(state, action), 1)
+            critic_loss = tf.keras.losses.MSE(y, critic_value)
+        critic_grad = tape.gradient(critic_loss, self.critic.trainable_variables)
+        self.critic_optimizer.apply_gradients(zip(critic_grad, self.critic.trainable_variables))
+
+        # Actor update
+        with tf.GradientTape() as tape:
+            new_policy_actions = self.actor(state)
+            actor_loss = -tf.reduce_mean(self.critic(state, new_policy_actions))
+        actor_grad = tape.gradient(actor_loss, self.actor.trainable_variables)
+        self.actor_optimizer.apply_gradients(zip(actor_grad, self.actor.trainable_variables))
+
+    def learn(self):
         if self.memory.mem_cntr < self.batch_size:
             return
         state, action, reward, new_state, done = self.memory.sample_buffer(self.batch_size)
-
-        critic_value_ = self.target_critic.predict(new_state, self.target_actor.predict(new_state))
-        target = []
-        for i in range(self.batch_size):
-            target.append(reward[i] + self.gamma * critic_value_[i] * done[i])
-        target = np.reshape(target, (self.batch_size, 1))
-        _ = self.critic.train(state, action, target)
-        a_outs = self.actor.predict(state)
-        grads = self.critic.get_action_gradients(state, a_outs)
-        self.actor.train(state, grads[0])
-
+        self.train_step(state, action, reward, new_state, done)
         self.update_network_parameters()
 
-    def save_models(self) -> None:
-        """Save all model weights."""
-        print('... saving models ...')
-        self.actor.save_checkpoint()
-        self.critic.save_checkpoint()
-        self.target_actor.save_checkpoint()
-        self.target_critic.save_checkpoint()
+    def save_models(self):
+        self.actor.save_weights('actor.h5')
+        self.critic.save_weights('critic.h5')
+        self.target_actor.save_weights('target_actor.h5')
+        self.target_critic.save_weights('target_critic.h5')
 
-    def load_models(self) -> None:
-        """Load all model weights."""
-        print('... loading models ...')
-        self.actor.load_checkpoint()
-        self.critic.load_checkpoint()
-        self.target_actor.load_checkpoint()
-        self.target_critic.load_checkpoint()
+    def load_models(self):
+        self.actor.load_weights('actor.h5')
+        self.critic.load_weights('critic.h5')
+        self.target_actor.load_weights('target_actor.h5')
+        self.target_critic.load_weights('target_critic.h5')

@@ -5,12 +5,7 @@ Contains the Ornstein-Uhlenbeck process for temporally correlated exploration no
 as used in the DDPG algorithm.
 """
 
-import os
 import numpy as np
-np.bool8 = bool
-import tensorflow.compat.v1 as tf
-tf.disable_v2_behavior()
-from tensorflow.keras.initializers import RandomUniform
 
 class OrnsteinUhlenbeckActionNoise:
     """

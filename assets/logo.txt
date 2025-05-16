@@ -1,0 +1,12 @@
+# DDPG Project Logo
+
+This is a placeholder for a project logo. You can replace this with a custom image (e.g., PNG, SVG) and reference it in your README.md.
+
+Example usage in README.md:
+
+```
+<!-- Project Logo -->
+![DDPG Logo](assets/logo.png)
+```
+
+You can use any of your result plots as a temporary logo, or design a custom one for a more professional look.

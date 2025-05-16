@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+title: "DDPG Paper Reimplementation in TensorFlow 2.x"
+authors:
+  - family-names: Villalovoz
+    given-names: Ethan
+    orcid: "https://orcid.org/0000-0000-0000-0000"
+date-released: 2025-05-15
+version: "1.0.0"
+license: MIT
+repository-code: "https://github.com/yourusername/ddpg-paper-reimplementation"
+abstract: "A clean, modular reimplementation of the DDPG algorithm in TensorFlow 2.x, with hyperparameter sweeps, logging, and analysis for reproducible research and benchmarking."
