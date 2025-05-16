@@ -1,8 +1,17 @@
-<!-- Project Banner -->
-![DDPG Banner](results/Pendulum_alpha0.0005_beta0.0001_tau0.01_bs128_l1400_l2300_episodes500.png)
+<div align="center">
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yourusername/ddpg-paper-reimplementation/blob/main/main.py)
+# 🏆 DDPG: Deep Deterministic Policy Gradient (TensorFlow 2.x)
+
+**Paper Reimplementation & Reproducible Experiments**
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ethanvillalovoz/ddpg-paper-reimplementation/blob/main/notebooks/DDPG_Analysis.ipynb)
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ethanvillalovoz/ddpg-paper-reimplementation/main?filepath=notebooks%2FDDPG_Analysis.ipynb)
+
+[Project Repository](https://github.com/ethanvillalovoz/ddpg-paper-reimplementation) • [Original DDPG Paper (Lillicrap et al., 2015)](https://arxiv.org/abs/1509.02971)
+
+---
+
+</div>
 
 <!-- Optional: Project Logo -->
 <!-- ![DDPG Logo](assets/logo.png) -->
@@ -122,7 +131,7 @@ python main.py
 
 ## Example Results
 
-![Learning Curve](Pendulum.png)
+![Learning Curve](results/Pendulum_alpha0.0005_beta0.0001_tau0.01_bs128_l1400_l2300_episodes500.png)
 
 ---
 
@@ -155,4 +164,3 @@ See [LICENSE](LICENSE) for details.
 - [TensorFlow](https://www.tensorflow.org/)
 
 ---
-````
