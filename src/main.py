@@ -9,3 +9,7 @@
 # The targert actor is just the evaluation actor plus some noise process
 # They used Ornstein-Uhlenbeck noise for exploration
 
+# Imports
+import os
+import numpy as np
+import tensorflow as tf
