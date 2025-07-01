@@ -13,3 +13,13 @@
 import os
 import numpy as np
 import tensorflow as tf
+
+class OUActionNoise:
+    def __init__(self, mu, sigma, theta=0.15, dt=1e-2, x0=None):
+        pass
+
+    def __call__(self):
+        pass
+    
+    def reset(self):
+        pass
