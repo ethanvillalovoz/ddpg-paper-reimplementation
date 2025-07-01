@@ -117,58 +117,107 @@ class ReplayBuffer(object):
         return states, actions, rewards, new_states, terminal
     
 class Actor(object):
+    """
+    Actor network for DDPG.
+    Responsible for learning the deterministic policy (mapping states to actions).
+    """
     def __init__(self, lr, n_actions, name, input_dims, sess, fcl_dims, fc2_dims, action_bound, batch_size=64, chkpt_dir='tmp/ddpg'):
+        # Learning rate for optimizer
         self.lr = lr
+        # Number of actions in the environment
         self.n_actions = n_actions
+        # Name scope for the network (useful for TensorFlow variable scoping)
         self.name = name
+        # Input dimensions (state space)
         self.input_dims = input_dims
+        # TensorFlow session
         self.sess = sess
+        # Number of units in the first fully connected layer
         self.fcl_dims = fcl_dims
+        # Number of units in the second fully connected layer
         self.fc2_dims = fc2_dims
+        # Action bound for scaling output actions
         self.action_bound = action_bound
+        # Batch size for training
         self.batch_size = batch_size
+        # Directory to save checkpoints
         self.chkpt_dir = chkpt_dir
+
+        # Build the actor network
         self.build_network()
+        # Get all trainable variables in this scope
         self.params = tf.trainable_variables(scope=self.name)
+        # TensorFlow saver for saving/loading checkpoints
         self.saver = tf.train.Saver()
+        # Path to save checkpoints
         self.checkpoint_file = os.path.join(self.chkpt_dir, self.name + '_ddpg.ckpt')
 
+        # Compute unnormalized gradients of the actor loss w.r.t. actor parameters
         self.unnormalized_actor_gradients = tf.gradients(self.mu, self.params, -self.action_gradient)
-
+        # Normalize gradients by batch size
         self.actor_gradients = list(map(lambda x: tf.div(x, self.batch_size), self.unnormalized_actor_gradients))
+        # Optimizer operation for applying gradients
         self.optimize = tf.train.AdamOptimizer(self.lr).apply_gradients(zip(self.actor_gradients, self.params))
 
     def build_network(self):
+        """
+        Build the TensorFlow computation graph for the actor network.
+        """
         with tf.variable_scope(self.name):
+            # Placeholder for input states
             self.input = tf.placeholder(tf.float32, shape=[None, *self.input_dims], name='inputs')
+            # Placeholder for action gradients (from the critic)
             self.action_gradient = tf.placeholder(tf.float32, shape=[None, self.n_actions], name='action_gradients')
+
+            # First dense layer with batch normalization and ReLU activation
             f1 = 1 / np.sqrt(self.fcl_dims)
             dense1 = tf.layers.dense(self.input, units=self.fcl_dims, kernel_initializer=random_uniform(-f1, f1), bias_initializer=random_uniform(-f1, f1))
             batch1 = tf.layers.batch_normalization(dense1)
             layer1_activation = tf.nn.relu(batch1)
 
+            # Second dense layer with batch normalization and ReLU activation
             f2 = 1 / np.sqrt(self.fc2_dims)
             dense2 = tf.layers.dense(layer1_activation, units=self.fc2_dims, kernel_initializer=random_uniform(-f2, f2), bias_initializer=random_uniform(-f2, f2))
             batch2 = tf.layers.batch_normalization(dense2)
             layer2_activation = tf.nn.relu(batch2)
 
+            # Output layer with tanh activation, scaled by action_bound
             f3 = 0.003
             mu = tf.layers.dense(layer2_activation, units=self.n_actions, activation=tf.nn.tanh, kernel_initializer=random_uniform(-f3, f3), bias_initializer=random_uniform(-f3, f3))
 
+            # Scale output to action bounds
             self.mu = tf.multiply(mu, self.action_bound, name='scaled_mu')
 
     def predict(self, inputs):
+        """
+        Predict actions given input states.
+        Args:
+            inputs (np.ndarray): Batch of input states.
+        Returns:
+            np.ndarray: Predicted actions.
+        """
         return self.sess.run(self.mu, feed_dict={self.input: inputs})
     
     def train(self, inputs, gradients):
+        """
+        Train the actor network using the provided action gradients.
+        Args:
+            inputs (np.ndarray): Batch of input states.
+            gradients (np.ndarray): Gradients from the critic.
+        """
         self.sess.run(self.optimize, feed_dict={self.input: inputs, self.action_gradient: gradients})
 
     def save_checkpoint(self):
+        """
+        Save the actor network parameters to disk.
+        """
         print('... saving checkpoint for actor ...')
         self.saver.save(self.sess, self.checkpoint_file)
 
     def load_checkpoint(self):
+        """
+        Load the actor network parameters from disk.
+        """
         print('... loading checkpoint for actor ...')
         self.saver.restore(self.sess, self.checkpoint_file)
         print('... loaded checkpoint for actor ...')
-        
