@@ -353,3 +353,28 @@ class Critic(object):
         print('... loading checkpoint for critic ...')
         self.saver.restore(self.sess, self.checkpoint_file)
         print('... loaded checkpoint for critic ...')
+
+class Agent(object):
+    """
+    DDPG Agent that combines Actor and Critic networks for training and inference.
+    """
+    def __init__(self, alpha, beta, input_dims, tau, env, gamma=0.99, n_actions=2, max_size=1000000, layer1_size=400, layer2_size=300, batch_size=64):
+        pass
+
+    def update_network_parameters(self, first=False):
+        pass
+
+    def remember(self, state, action, reward, new_state, done):
+        pass
+
+    def choose_action(self, state):
+       pass
+    
+    def learn(self):
+        pass
+
+    def save_models(self):
+        pass
+
+    def load_models(self):
+       pass
