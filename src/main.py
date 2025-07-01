@@ -14,41 +14,56 @@ import os
 import numpy as np
 import tensorflow as tf
 
-class OUActionNoise:
+class OUActionNoise(object):
     """
     Ornstein-Uhlenbeck process for generating temporally correlated noise.
-    Commonly used in DDPG for exploration in continuous action spaces.
+    Used in DDPG for exploration in continuous action spaces.
+    Inherits from 'object' for compatibility with Python 2/3 style classes.
     """
     def __init__(self, mu, sigma, theta=0.15, dt=1e-2, x0=None):
         """
-        Initialize the noise process.
+        Initialize the OUActionNoise process.
+
         Args:
-            mu (np.ndarray): Mean of the noise.
-            sigma (float or np.ndarray): Volatility parameter.
-            theta (float): Speed of mean reversion.
-            dt (float): Time step.
-            x0 (np.ndarray or None): Initial state.
+            mu (np.ndarray): The mean value (center) of the noise process.
+            sigma (float or np.ndarray): The volatility (scale) of the noise.
+            theta (float): The rate at which the noise reverts to the mean.
+            dt (float): The time step for discretization.
+            x0 (np.ndarray or None): Optional initial state for the process.
         """
-        self.mu = mu
-        self.sigma = sigma
-        self.theta = theta
-        self.dt = dt
-        self.x0 = x0
-        self.reset()
+        self.mu = mu                  # Mean of the noise process
+        self.sigma = sigma            # Volatility parameter
+        self.theta = theta            # Speed of mean reversion
+        self.dt = dt                  # Time step
+        self.x0 = x0                  # Initial state
+        self.reset()                  # Initialize the previous state
 
     def __call__(self):
         """
         Generate the next noise value using the OU process.
+
         Returns:
-            np.ndarray: The next noise value.
+            np.ndarray: The next noise value, updated from the previous state.
         """
+        # Compute next value based on previous value, mean, and random noise
         x = self.x_prev + self.theta * (self.mu - self.x_prev) * self.dt + \
             self.sigma * np.sqrt(self.dt) * np.random.normal(size=self.mu.shape)
-        self.x_prev = x
+        self.x_prev = x  # Update previous state
         return x
     
     def reset(self):
         """
-        Reset the process to the initial state or zeros.
+        Reset the process to the initial state or zeros if not provided.
         """
+        # Set previous state to initial value or zeros
         self.x_prev = self.x0 if self.x0 is not None else np.zeros_like(self.mu)
+
+class ReplayBuffer(object):
+    def __init__(self, max_size, input_shape, n_actions):
+        pass
+
+    def store_transition(self, state, action, reward, new_state, done):
+        pass
+
+    def sample_buffer(self, batch_size):
+        pass
