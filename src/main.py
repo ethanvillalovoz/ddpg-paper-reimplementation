@@ -223,6 +223,10 @@ class Actor(object):
         print('... loaded checkpoint for actor ...')
 
 class Critic(object):
+    """
+    Critic network for DDPG.
+    Responsible for estimating the Q-value (expected return) for state-action pairs.
+    """
     def __init__(self, lr, n_actions, name, input_dims, sess, fcl_dims, fc2_dims, action_bound, batch_size=64, chkpt_dir='tmp/ddpg'):
         # Learning rate for optimizer
         self.lr = lr
@@ -238,14 +242,14 @@ class Critic(object):
         self.fcl_dims = fcl_dims
         # Number of units in the second fully connected layer
         self.fc2_dims = fc2_dims
-        # Action bound for scaling output actions
+        # Action bound for scaling output actions (not directly used in critic)
         self.action_bound = action_bound
         # Batch size for training
         self.batch_size = batch_size
         # Directory to save checkpoints
         self.chkpt_dir = chkpt_dir
 
-        # Build the actor network
+        # Build the critic network
         self.build_network()
         # Get all trainable variables in this scope
         self.params = tf.trainable_variables(scope=self.name)
@@ -254,8 +258,10 @@ class Critic(object):
         # Path to save checkpoints
         self.checkpoint_file = os.path.join(self.chkpt_dir, self.name + '_ddpg.ckpt')
 
+        # Optimizer operation for minimizing the critic loss
         self.optimize = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
 
+        # Compute gradients of Q-values with respect to actions (for actor update)
         self.action_gradients = tf.gradients(self.q, self.action, name='action_gradients')
 
     def build_network(self):
@@ -281,13 +287,24 @@ class Critic(object):
             dense2 = tf.layers.dense(layer1_activation, units=self.fc2_dims, kernel_initializer=random_uniform(-f2, f2), bias_initializer=random_uniform(-f2, f2))
             batch2 = tf.layers.batch_normalization(dense2)
 
+            # Process action input through a dense layer
             action_in = tf.layers.dense(self.action, units=self.fc2_dims, activation='relu')
 
+            # Combine state and action pathways
             state_actions = tf.add(batch2, action_in)
             state_actions = tf.nn.relu(state_actions)
 
+            # Output Q-value layer with L2 regularization
             f3 = 0.003
-            self.q = tf.layers.dense(state_actions, units=1, kernel_initializer=random_uniform(-f3, f3), bias_initializer=random_uniform(-f3, f3), kernel_regularizer=tf.keras.regularizers.l2(0.01), name='q_value')
+            self.q = tf.layers.dense(
+                state_actions,
+                units=1,
+                kernel_initializer=random_uniform(-f3, f3),
+                bias_initializer=random_uniform(-f3, f3),
+                kernel_regularizer=tf.keras.regularizers.l2(0.01),
+                name='q_value'
+            )
+            # Mean squared error loss for critic
             self.loss = tf._losses.mean_squared_error(self.target, self.q, name='critic_loss')
 
     def predict(self, inputs, actions):
@@ -324,15 +341,15 @@ class Critic(object):
     
     def save_checkpoint(self):
         """
-        Save the actor network parameters to disk.
+        Save the critic network parameters to disk.
         """
-        print('... saving checkpoint for actor ...')
+        print('... saving checkpoint for critic ...')
         self.saver.save(self.sess, self.checkpoint_file)
 
     def load_checkpoint(self):
         """
-        Load the actor network parameters from disk.
+        Load the critic network parameters from disk.
         """
-        print('... loading checkpoint for actor ...')
+        print('... loading checkpoint for critic ...')
         self.saver.restore(self.sess, self.checkpoint_file)
-        print('... loaded checkpoint for actor ...')
+        print('... loaded checkpoint for critic ...')
