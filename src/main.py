@@ -224,22 +224,115 @@ class Actor(object):
 
 class Critic(object):
     def __init__(self, lr, n_actions, name, input_dims, sess, fcl_dims, fc2_dims, action_bound, batch_size=64, chkpt_dir='tmp/ddpg'):
-        pass
+        # Learning rate for optimizer
+        self.lr = lr
+        # Number of actions in the environment
+        self.n_actions = n_actions
+        # Name scope for the network (useful for TensorFlow variable scoping)
+        self.name = name
+        # Input dimensions (state space)
+        self.input_dims = input_dims
+        # TensorFlow session
+        self.sess = sess
+        # Number of units in the first fully connected layer
+        self.fcl_dims = fcl_dims
+        # Number of units in the second fully connected layer
+        self.fc2_dims = fc2_dims
+        # Action bound for scaling output actions
+        self.action_bound = action_bound
+        # Batch size for training
+        self.batch_size = batch_size
+        # Directory to save checkpoints
+        self.chkpt_dir = chkpt_dir
+
+        # Build the actor network
+        self.build_network()
+        # Get all trainable variables in this scope
+        self.params = tf.trainable_variables(scope=self.name)
+        # TensorFlow saver for saving/loading checkpoints
+        self.saver = tf.train.Saver()
+        # Path to save checkpoints
+        self.checkpoint_file = os.path.join(self.chkpt_dir, self.name + '_ddpg.ckpt')
+
+        self.optimize = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
+
+        self.action_gradients = tf.gradients(self.q, self.action, name='action_gradients')
 
     def build_network(self):
-        pass
+        """
+        Build the TensorFlow computation graph for the critic network.
+        """
+        with tf.variable_scope(self.name):
+            # Placeholder for input states
+            self.input = tf.placeholder(tf.float32, shape=[None, *self.input_dims], name='inputs')
+            # Placeholder for input actions
+            self.action = tf.placeholder(tf.float32, shape=[None, self.n_actions], name='actions')
+            # Placeholder for target Q values
+            self.q_target = tf.placeholder(tf.float32, shape=[None, 1], name='target')
+
+            # First dense layer with batch normalization and ReLU activation
+            f1 = 1 / np.sqrt(self.fcl_dims)
+            dense1 = tf.layers.dense(self.input, units=self.fcl_dims, kernel_initializer=random_uniform(-f1, f1), bias_initializer=random_uniform(-f1, f1))
+            batch1 = tf.layers.batch_normalization(dense1)
+            layer1_activation = tf.nn.relu(batch1)
+
+            # Second dense layer with batch normalization and ReLU activation
+            f2 = 1 / np.sqrt(self.fc2_dims)
+            dense2 = tf.layers.dense(layer1_activation, units=self.fc2_dims, kernel_initializer=random_uniform(-f2, f2), bias_initializer=random_uniform(-f2, f2))
+            batch2 = tf.layers.batch_normalization(dense2)
+
+            action_in = tf.layers.dense(self.action, units=self.fc2_dims, activation='relu')
+
+            state_actions = tf.add(batch2, action_in)
+            state_actions = tf.nn.relu(state_actions)
+
+            f3 = 0.003
+            self.q = tf.layers.dense(state_actions, units=1, kernel_initializer=random_uniform(-f3, f3), bias_initializer=random_uniform(-f3, f3), kernel_regularizer=tf.keras.regularizers.l2(0.01), name='q_value')
+            self.loss = tf._losses.mean_squared_error(self.target, self.q, name='critic_loss')
 
     def predict(self, inputs, actions):
-        pass
+        """
+        Predict Q values given input states and actions.
+        Args:
+            inputs (np.ndarray): Batch of input states.
+            actions (np.ndarray): Batch of actions.
+        Returns:
+            np.ndarray: Predicted Q values.
+        """
+        return self.sess.run(self.q, feed_dict={self.input: inputs, self.action: actions})
     
     def train(self, inputs, actions, q_target):
-        pass
+        """
+        Train the critic network using the provided states, actions, and target Q values.
+        Args:
+            inputs (np.ndarray): Batch of input states.
+            actions (np.ndarray): Batch of actions.
+            q_target (np.ndarray): Target Q values.
+        """
+        self.sess.run(self.optimize, feed_dict={self.input: inputs, self.action: actions, self.q_target: q_target})
 
     def get_action_gradients(self, inputs, actions):
-        pass
+        """
+        Get the gradients of the Q values with respect to the actions.
+        Args:
+            inputs (np.ndarray): Batch of input states.
+            actions (np.ndarray): Batch of actions.
+        Returns:
+            np.ndarray: Action gradients.
+        """
+        return self.sess.run(self.action_gradients, feed_dict={self.input: inputs, self.action: actions})
     
     def save_checkpoint(self):
-        pass
+        """
+        Save the actor network parameters to disk.
+        """
+        print('... saving checkpoint for actor ...')
+        self.saver.save(self.sess, self.checkpoint_file)
 
     def load_checkpoint(self):
-       pass
+        """
+        Load the actor network parameters from disk.
+        """
+        print('... loading checkpoint for actor ...')
+        self.saver.restore(self.sess, self.checkpoint_file)
+        print('... loaded checkpoint for actor ...')
