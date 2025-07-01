@@ -221,3 +221,25 @@ class Actor(object):
         print('... loading checkpoint for actor ...')
         self.saver.restore(self.sess, self.checkpoint_file)
         print('... loaded checkpoint for actor ...')
+
+class Critic(object):
+    def __init__(self, lr, n_actions, name, input_dims, sess, fcl_dims, fc2_dims, action_bound, batch_size=64, chkpt_dir='tmp/ddpg'):
+        pass
+
+    def build_network(self):
+        pass
+
+    def predict(self, inputs, actions):
+        pass
+    
+    def train(self, inputs, actions, q_target):
+        pass
+
+    def get_action_gradients(self, inputs, actions):
+        pass
+    
+    def save_checkpoint(self):
+        pass
+
+    def load_checkpoint(self):
+       pass
