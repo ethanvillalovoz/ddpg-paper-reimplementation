@@ -359,22 +359,99 @@ class Agent(object):
     DDPG Agent that combines Actor and Critic networks for training and inference.
     """
     def __init__(self, alpha, beta, input_dims, tau, env, gamma=0.99, n_actions=2, max_size=1000000, layer1_size=400, layer2_size=300, batch_size=64):
-        pass
+        self.gamma = gamma  # Discount factor for future rewards
+        self.tau = tau  # Soft update parameter
+        self.memory = ReplayBuffer(max_size, input_dims, n_actions)  # Experience replay
+        self.actor = Actor(alpha, n_actions, 'actor', input_dims, self.sess, layer1_size, layer2_size, env.action_space.high)
+        self.critic = Critic(beta, n_actions, 'critic', input_dims, self.sess, layer1_size, layer2_size)
+        self.target_actor = Actor(alpha, n_actions, 'target_actor', input_dims, self.sess, layer1_size, layer2_size, env.action_space.high)
+        self.target_critic = Critic(beta, n_actions, 'target_critic', input_dims, self.sess, layer1_size, layer2_size)
+        self.noise = OUActionNoise(mu=np.zeros(n_actions))
+        self.update_critic = [self.target_critic.params[i].assign(tf.multiply(self.critic.params[i], self.tau) + tf.multiply(self.target_critic.params[i], 1 - self.tau)) for i in range(len(self.target_critic.params))]
+        self.update_actor = [self.target_actor.params[i].assign(tf.multiply(self.actor.params[i], self.tau) + tf.multiply(self.target_actor.params[i], 1 - self.tau)) for i in range(len(self.target_actor.params))]
+        self.sess.run(tf.global_variables_initializer())
+        self.update_network_parameters(first=True)
 
     def update_network_parameters(self, first=False):
-        pass
+        """
+        Update the target networks using soft updates.
+        Args:
+            first (bool): If True, initializes target networks to match actor and critic.
+        """
+        if first:
+            old_tau = self.tau
+            self.tau = 1.0
+            self.target_critic.sess.run(self.update_critic)
+            self.target_actor.sess.run(self.update_actor)
+            self.tau = old_tau
+        else:
+            self.target_critic.sess.run(self.update_critic)
+            self.target_actor.sess.run(self.update_actor)
 
     def remember(self, state, action, reward, new_state, done):
-        pass
+        """
+        Store a transition in the replay buffer.
+        Args:
+            state (np.ndarray): Current state.
+            action (np.ndarray): Action taken.
+            reward (float): Reward received.
+            new_state (np.ndarray): Next state after action.
+            done (bool): Whether the episode ended after this transition.
+        """
+        self.memory.store_transition(state, action, reward, new_state, done)
 
     def choose_action(self, state):
-       pass
+        """
+        Choose an action based on the current state using the actor network.
+        Args:
+            state (np.ndarray): Current state.
+        Returns:
+            np.ndarray: Chosen action with added exploration noise.
+        """
+        state = state[np.newaxis, :]
+        mu = self.actor.predict(state)
+        noise = self.noise()
+        mu_prime = mu + noise
+
+        return mu_prime[0]  # Return the action as a 1D array
     
     def learn(self):
-        pass
+        """
+        Sample a batch from the replay buffer and update the actor and critic networks.
+        """
+        if self.memory.memory_counter < self.batch_size:
+            return
+        state, action, reward, new_state, done = self.memory.sample_buffer(self.batch_size)
+
+        cricic_value = self.target_critic.predict(new_state, self.target_actor.predict(new_state))
+
+        target = []
+        for i in range(self.batch_size):
+            target.append(reward[i] + self.gamma * cricic_value[i] * done[i])
+        target = np.reshape(target, (self.batch_size, 1))
+
+        _ = self.critic.train(state, action, target)
+
+        a_outs = self.actor.predict(state)
+        grads = self.critic.get_action_gradients(state, a_outs)
+        self.actor.train(state, grads[0])
+
+        self.update_network_parameters()
 
     def save_models(self):
-        pass
+        """
+        Save the actor and critic networks to disk.
+        """
+        self.actor.save_checkpoint()
+        self.target_actor.save_checkpoint()
+        self.critic.save_checkpoint()
+        self.target_critic.save_checkpoint()
 
     def load_models(self):
-       pass
+        """
+        Load the actor and critic networks from disk.
+        """
+        self.actor.load_checkpoint()
+        self.target_actor.load_checkpoint()
+        self.critic.load_checkpoint()
+        self.target_critic.load_checkpoint()
