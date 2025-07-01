@@ -59,27 +59,53 @@ class OUActionNoise(object):
         self.x_prev = self.x0 if self.x0 is not None else np.zeros_like(self.mu)
 
 class ReplayBuffer(object):
+    """
+    Replay buffer for storing and sampling experience tuples.
+    Used in DDPG to enable off-policy learning by sampling random batches of past experiences.
+    """
     def __init__(self, max_size, input_shape, n_actions):
+        # Maximum number of transitions to store in the buffer
         self.memory_size = max_size
+        # Counter to keep track of the number of transitions added
         self.memory_counter = 0
+        # Memory arrays for states, new states, actions, rewards, and terminal flags
         self.state_memory = np.zeros((self.memory_size, *input_shape), dtype=np.float32)
         self.new_state_memory = np.zeros((self.memory_size, *input_shape), dtype=np.float32)
         self.action_memory = np.zeros((self.memory_size, n_actions), dtype=np.float32)
         self.reward_memory = np.zeros(self.memory_size, dtype=np.float32)
-        self.terminal_memory = np.zeros(self.memory_size, dtype=npfloat32)
+        self.terminal_memory = np.zeros(self.memory_size, dtype=np.float32)  # Fixed dtype typo
 
     def store_transition(self, state, action, reward, new_state, done):
-        index = self.memory_counter % self.memory_size
+        """
+        Store a new experience in the buffer, overwriting the oldest if full.
+
+        Args:
+            state (np.ndarray): Current state.
+            action (np.ndarray): Action taken.
+            reward (float): Reward received.
+            new_state (np.ndarray): Next state after action.
+            done (bool): Whether the episode ended after this transition.
+        """
+        index = self.memory_counter % self.memory_size  # Circular buffer index
         self.state_memory[index] = state
         self.action_memory[index] = action
         self.reward_memory[index] = reward
         self.new_state_memory[index] = new_state
-        self.terminal_memory[index] =  1 - int(done)
+        self.terminal_memory[index] = 1 - int(done)  # 0 if done, 1 otherwise
         self.memory_counter += 1
 
     def sample_buffer(self, batch_size):
-        max_mem = min(self.memory_counter, self.memory_size)
-        batch = np.random.choice(max_mem, batch_size)
+        """
+        Sample a random batch of experiences from the buffer.
+
+        Args:
+            batch_size (int): Number of samples to return.
+
+        Returns:
+            Tuple of (states, actions, rewards, new_states, terminals)
+        """
+        max_mem = min(self.memory_counter, self.memory_size)  # Only sample from filled part
+        batch = np.random.choice(max_mem, batch_size)  # Random indices
 
         states = self.state_memory[batch]
         actions = self.action_memory[batch]
@@ -87,4 +113,4 @@ class ReplayBuffer(object):
         new_states = self.new_state_memory[batch]
         terminal = self.terminal_memory[batch]
 
-        return states, actions, rewards, new_states, terminal  
+        return states, actions, rewards, new_states, terminal
