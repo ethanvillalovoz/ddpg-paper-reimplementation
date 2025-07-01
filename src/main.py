@@ -13,6 +13,7 @@
 import os
 import numpy as np
 import tensorflow as tf
+from tensorflow.initializers import random_uniform
 
 class OUActionNoise(object):
     """
@@ -114,3 +115,22 @@ class ReplayBuffer(object):
         terminal = self.terminal_memory[batch]
 
         return states, actions, rewards, new_states, terminal
+    
+class Actor(object):
+    def __init__(self, lr, n_actions, name, input_dims, sess, fcl_dims, fc2_dims, action_bound, batch_size=64, chkpt_dir='tmp/ddpg'):
+        pass
+
+    def build_network(self):
+        pass
+
+    def predict(self, inputs):
+        pass
+    
+    def train(self, inputs, gradients):
+        pass
+
+    def save_checkpoint(self):
+        pass
+
+    def load_checkpoint(self):
+        pass
