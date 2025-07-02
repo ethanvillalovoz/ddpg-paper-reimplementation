@@ -12,7 +12,9 @@ class Agent:
     """
     def __init__(
         self, alpha: float, beta: float, input_dims: list, tau: float, env: Any, gamma: float = 0.99, n_actions: int = 1,
-        max_size: int = 1000000, layer1_size: int = 400, layer2_size: int = 300, batch_size: int = 64
+        max_size: int = 1000000, layer1_size: int = 400, layer2_size: int = 300, batch_size: int = 64,
+        actor_path: str = 'actor.h5', critic_path: str = 'critic.h5',
+        target_actor_path: str = 'target_actor.h5', target_critic_path: str = 'target_critic.h5'
     ):
         # Discount factor for future rewards
         self.gamma = gamma
@@ -40,6 +42,12 @@ class Agent:
         self.noise = OUActionNoise(mu=np.zeros(n_actions))
         # Hard update target networks to match main networks at start
         self.update_network_parameters(tau=1.0)
+
+        # Model save/load paths
+        self.actor_path = actor_path
+        self.critic_path = critic_path
+        self.target_actor_path = target_actor_path
+        self.target_critic_path = target_critic_path
 
     def update_network_parameters(self, tau: Optional[float] = None) -> None:
         """
@@ -131,16 +139,16 @@ class Agent:
         """
         Save the actor and critic networks (and their targets) to disk.
         """
-        self.actor.save_weights('actor.h5')
-        self.critic.save_weights('critic.h5')
-        self.target_actor.save_weights('target_actor.h5')
-        self.target_critic.save_weights('target_critic.h5')
+        self.actor.save_weights(self.actor_path)
+        self.critic.save_weights(self.critic_path)
+        self.target_actor.save_weights(self.target_actor_path)
+        self.target_critic.save_weights(self.target_critic_path)
 
     def load_models(self) -> None:
         """
         Load the actor and critic networks (and their targets) from disk.
         """
-        self.actor.load_weights('actor.h5')
-        self.critic.load_weights('critic.h5')
-        self.target_actor.load_weights('target_actor.h5')
-        self.target_critic.load_weights('target_critic.h5')
+        self.actor.load_weights(self.actor_path)
+        self.critic.load_weights(self.critic_path)
+        self.target_actor.load_weights(self.target_actor_path)
+        self.target_critic.load_weights(self.target_critic_path)

@@ -41,7 +41,11 @@ def main() -> None:
         layer2_size=config['agent']['layer2_size'],
         n_actions=config['agent']['n_actions'],
         gamma=config['agent']['gamma'],
-        max_size=config['agent']['max_size']
+        max_size=config['agent']['max_size'],
+        actor_path=config.get('actor_path', 'actor.h5'),
+        critic_path=config.get('critic_path', 'critic.h5'),
+        target_actor_path=config.get('target_actor_path', 'target_actor.h5'),
+        target_critic_path=config.get('target_critic_path', 'target_critic.h5')
     )
 
     score_history: List[float] = []          # List to store episode scores

@@ -10,3 +10,7 @@ agent:
   n_actions: 1
   gamma: 0.99
   max_size: 1000000
+actor_path: actor.h5
+critic_path: critic.h5
+target_actor_path: target_actor.h5
+target_critic_path: target_critic.h5
