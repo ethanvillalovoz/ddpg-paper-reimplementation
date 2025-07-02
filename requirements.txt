@@ -1,6 +1,7 @@
 numpy
 gym
 matplotlib
+pyyaml
 # For Apple Silicon, use tensorflow-macos and tensorflow-metal for hardware acceleration
 tensorflow-macos
 tensorflow-metal

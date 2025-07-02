@@ -3,21 +3,26 @@ import gym                      # OpenAI Gym for environment simulation
 import numpy as np              # NumPy for numerical operations
 from agent import Agent         # Import the Agent class from agent.py
 from utils import plotLearning  # Utility function for plotting learning curves
+import yaml                     # For loading configuration files
 
 if __name__ == '__main__':
-    # Create the Pendulum-v1 environment from Gym
-    env = gym.make('Pendulum-v1')
-    # Initialize the DDPG agent with hyperparameters and environment details
+    # Load hyperparameters and environment from config.yaml
+    with open('config.yaml', 'r') as f:
+        config = yaml.safe_load(f)
+
+    env = gym.make(config['env'])
     agent = Agent(
-        alpha=0.0001,           # Learning rate for actor
-        beta=0.001,             # Learning rate for critic
-        input_dims=[3],         # State space dimensions
-        tau=0.001,              # Soft update parameter for target networks
-        env=env,                # The environment
-        batch_size=64,          # Batch size for learning
-        layer1_size=400,        # First hidden layer size
-        layer2_size=300,        # Second hidden layer size
-        n_actions=1             # Number of actions
+        alpha=config['agent']['alpha'],
+        beta=config['agent']['beta'],
+        input_dims=config['agent']['input_dims'],
+        tau=config['agent']['tau'],
+        env=env,
+        batch_size=config['agent']['batch_size'],
+        layer1_size=config['agent']['layer1_size'],
+        layer2_size=config['agent']['layer2_size'],
+        n_actions=config['agent']['n_actions'],
+        gamma=config['agent']['gamma'],
+        max_size=config['agent']['max_size']
     )
 
     score_history = []          # List to store episode scores
