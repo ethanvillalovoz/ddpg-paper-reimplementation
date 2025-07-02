@@ -7,6 +7,7 @@ import yaml  # For loading configuration files
 from typing import Any, Dict, List
 import logging  # Add logging import
 from env_wrappers import NormalizedEnv  # Add this import
+import tensorflow as tf  # For TensorBoard experiment tracking
 
 
 def load_config(path: str) -> Dict[str, Any]:
@@ -54,6 +55,9 @@ def main() -> None:
         target_critic_path=config.get("target_critic_path", "target_critic.h5"),
     )
 
+    # Create a summary writer for TensorBoard
+    summary_writer = tf.summary.create_file_writer("runs/ddpg_experiment")
+
     score_history: List[float] = []  # List to store episode scores
     np.random.seed(0)  # Set random seed for reproducibility
 
@@ -80,6 +84,12 @@ def main() -> None:
             score,
             np.mean(score_history[-100:]),
         )
+        # Log metrics to TensorBoard
+        with summary_writer.as_default():
+            tf.summary.scalar("Episode Reward", score, step=i)
+            tf.summary.scalar(
+                "Average100", np.mean(score_history[-100:]), step=i
+            )
     filename = "pendulum.png"
     plotLearning(score_history, filename, window=100)  # Plot learning curve
 
