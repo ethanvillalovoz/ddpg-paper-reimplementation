@@ -5,6 +5,7 @@ from agent import Agent         # Import the Agent class from agent.py
 from utils import plotLearning  # Utility function for plotting learning curves
 import yaml                     # For loading configuration files
 from typing import Any, Dict, List
+import logging                  # Add logging import
 
 def load_config(path: str) -> Dict[str, Any]:
     """
@@ -24,6 +25,8 @@ def main() -> None:
     Main training loop for DDPG agent.
     Loads configuration, initializes environment and agent, and runs training episodes.
     """
+    # Configure logging
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     # Load hyperparameters and environment from config.yaml
     config = load_config('config.yaml')
     env = gym.make(config['env'])
@@ -59,10 +62,9 @@ def main() -> None:
             score += reward                                         # Accumulate reward for this episode
             observation = new_state                                 # Move to next state
         score_history.append(score)                                 # Store episode score
-        print(
-            'episode ', i+1,
-            'score %.2f' % score,
-            'trailing 100 games avg %.3f' % np.mean(score_history[-100:])
+        logging.info(
+            'episode %d score %.2f trailing 100 games avg %.3f',
+            i+1, score, np.mean(score_history[-100:])
         )
     filename = 'pendulum.png'
     plotLearning(score_history, filename, window=100)               # Plot learning curve
