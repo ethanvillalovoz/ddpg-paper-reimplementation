@@ -8,6 +8,10 @@ from typing import Any, Dict, List
 import logging  # Add logging import
 from env_wrappers import NormalizedEnv  # Add this import
 import tensorflow as tf  # For TensorBoard experiment tracking
+import random
+import os
+import shutil
+from datetime import datetime
 
 
 def load_config(path: str) -> Dict[str, Any]:
@@ -22,6 +26,16 @@ def load_config(path: str) -> Dict[str, Any]:
     """
     with open(path, "r") as f:
         return yaml.safe_load(f)
+
+
+def set_global_seeds(seed: int) -> None:
+    """
+    Set seeds for reproducibility across Python, NumPy, TensorFlow, and Gym.
+    """
+    random.seed(seed)
+    np.random.seed(seed)
+    tf.random.set_seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
 
 
 def main() -> None:
@@ -58,8 +72,23 @@ def main() -> None:
     # Create a summary writer for TensorBoard
     summary_writer = tf.summary.create_file_writer("runs/ddpg_experiment")
 
+    seed = config.get("seed", 0)
+    set_global_seeds(seed)
+    try:
+        env.reset(seed=seed)
+    except TypeError:
+        env.seed(seed)
+
+    # Save the config file for this run
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    os.makedirs("experiments", exist_ok=True)
+    config_copy_path = f"experiments/config_{timestamp}.yaml"
+    shutil.copy("config.yaml", config_copy_path)
+    logging.info(f"Saved config for this run to {config_copy_path}")
+
     # Log hyperparameters to TensorBoard at the start
     with summary_writer.as_default():
+        tf.summary.text("hyperparam/seed", str(seed), step=0)
         for key, value in config["agent"].items():
             tf.summary.text(f"hyperparam/{key}", str(value), step=0)
 
