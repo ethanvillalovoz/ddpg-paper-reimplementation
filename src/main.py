@@ -12,6 +12,7 @@ import random
 import os
 import shutil
 from datetime import datetime
+import argparse
 
 
 def load_config(path: str) -> Dict[str, Any]:
@@ -38,17 +39,22 @@ def set_global_seeds(seed: int) -> None:
     os.environ["PYTHONHASHSEED"] = str(seed)
 
 
-def main() -> None:
-    """
-    Main training loop for DDPG agent.
-    Loads configuration, initializes environment and agent, and runs training episodes.
-    """
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="config.yaml",
+        help="Path to config file",
+    )
+    args = parser.parse_args()
+    config = load_config(args.config)
+
     # Configure logging
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
     )
     # Load hyperparameters and environment from config.yaml
-    config = load_config("config.yaml")
     env = gym.make(config["env"])
     env = NormalizedEnv(env)  # Wrap the environment for normalization
     agent = Agent(
