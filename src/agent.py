@@ -3,7 +3,7 @@ import tensorflow as tf
 from ou_noise import OUActionNoise
 from replay_buffer import ReplayBuffer
 from networks import Actor, Critic
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 
 class Agent:
@@ -131,13 +131,14 @@ class Agent:
             actions += self.noise()
         return np.clip(actions[0], -self.actor.action_bound, self.actor.action_bound)
 
-    def learn(self) -> None:
+    def learn(self) -> Optional[Tuple[float, float]]:
         """
         Sample a batch from the replay buffer and update the actor and critic networks.
-        Performs one gradient update for both networks using sampled experiences.
+        Returns:
+            tuple: (critic_loss, actor_loss) or None if not enough samples.
         """
         if self.memory.mem_cntr < self.batch_size:
-            return
+            return None
 
         states, actions, rewards, new_states, dones = self.memory.sample_buffer(
             self.batch_size
@@ -174,6 +175,8 @@ class Agent:
 
         # Soft update target networks
         self.update_network_parameters()
+
+        return float(critic_loss.numpy()), float(actor_loss.numpy())
 
     def save_models(self) -> None:
         """

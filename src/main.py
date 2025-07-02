@@ -58,6 +58,11 @@ def main() -> None:
     # Create a summary writer for TensorBoard
     summary_writer = tf.summary.create_file_writer("runs/ddpg_experiment")
 
+    # Log hyperparameters to TensorBoard at the start
+    with summary_writer.as_default():
+        for key, value in config["agent"].items():
+            tf.summary.text(f"hyperparam/{key}", str(value), step=0)
+
     score_history: List[float] = []  # List to store episode scores
     np.random.seed(0)  # Set random seed for reproducibility
 
@@ -68,28 +73,43 @@ def main() -> None:
         )  # Reset environment at the start of each episode
         done = False
         score = 0.0
+        episode_critic_losses = []
+        episode_actor_losses = []
         # Run one episode
         while not done:
             act = agent.choose_action(observation)  # Agent selects action
             new_state, reward, terminated, truncated, info = env.step(act)
             done = terminated or truncated  # Check if episode is done
             agent.remember(observation, act, reward, new_state, int(done))
-            agent.learn()  # Agent learns from experience
+            # Get losses from agent.learn()
+            result = agent.learn()
+            if result is not None:
+                critic_loss, actor_loss = result
+                episode_critic_losses.append(critic_loss)
+                episode_actor_losses.append(actor_loss)
             score += reward  # Accumulate reward for this episode
             observation = new_state  # Move to next state
         score_history.append(score)  # Store episode score
+        avg_critic_loss = (
+            np.mean(episode_critic_losses) if episode_critic_losses else 0
+        )
+        avg_actor_loss = (
+            np.mean(episode_actor_losses) if episode_actor_losses else 0
+        )
         logging.info(
-            "episode %d score %.2f trailing 100 games avg %.3f",
+            "episode %d score %.2f trailing 100 games avg %.3f critic_loss %.4f actor_loss %.4f",
             i + 1,
             score,
             np.mean(score_history[-100:]),
+            avg_critic_loss,
+            avg_actor_loss,
         )
         # Log metrics to TensorBoard
         with summary_writer.as_default():
             tf.summary.scalar("Episode Reward", score, step=i)
-            tf.summary.scalar(
-                "Average100", np.mean(score_history[-100:]), step=i
-            )
+            tf.summary.scalar("Average100", np.mean(score_history[-100:]), step=i)
+            tf.summary.scalar("Critic Loss", avg_critic_loss, step=i)
+            tf.summary.scalar("Actor Loss", avg_actor_loss, step=i)
     filename = "pendulum.png"
     plotLearning(score_history, filename, window=100)  # Plot learning curve
 
