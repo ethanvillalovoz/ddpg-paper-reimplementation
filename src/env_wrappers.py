@@ -1,10 +1,12 @@
 import gym
 import numpy as np
 
+
 class NormalizedEnv(gym.Wrapper):
     """
     Gym environment wrapper for normalizing observations and actions.
     """
+
     def __init__(self, env):
         super(NormalizedEnv, self).__init__(env)
         self.observation_space = env.observation_space
@@ -21,7 +23,9 @@ class NormalizedEnv(gym.Wrapper):
 
     def _normalize_obs(self, obs):
         # Example: scale observations to [-1, 1] if possible
-        if hasattr(self.observation_space, 'high') and hasattr(self.observation_space, 'low'):
+        if hasattr(self.observation_space, "high") and hasattr(
+            self.observation_space, "low"
+        ):
             high = self.observation_space.high
             low = self.observation_space.low
             # Avoid division by zero

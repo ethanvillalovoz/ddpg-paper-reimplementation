@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 from replay_buffer import ReplayBuffer
 
+
 class TestReplayBuffer(unittest.TestCase):
     def test_store_and_sample(self):
         buffer = ReplayBuffer(max_size=10, input_shape=[3], n_actions=1)
@@ -18,5 +19,6 @@ class TestReplayBuffer(unittest.TestCase):
         self.assertEqual(new_states.shape, (1, 3))
         self.assertEqual(dones.shape, (1,))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

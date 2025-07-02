@@ -6,3 +6,5 @@ pyyaml
 tensorflow-macos
 tensorflow-metal
 pytest
+black
+flake8

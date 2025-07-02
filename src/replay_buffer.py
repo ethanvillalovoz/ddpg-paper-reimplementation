@@ -1,11 +1,13 @@
 import numpy as np
 from typing import Tuple
 
+
 class ReplayBuffer:
     """
     Experience replay buffer for DDPG.
     Stores transitions and allows random sampling for training.
     """
+
     def __init__(self, max_size: int, input_shape: list, n_actions: int):
         # Maximum number of transitions to store
         self.mem_size = max_size
@@ -13,12 +15,21 @@ class ReplayBuffer:
         self.mem_cntr = 0
         # Memory arrays for states, new states, actions, rewards, and terminal flags
         self.state_memory = np.zeros((self.mem_size, *input_shape), dtype=np.float32)
-        self.new_state_memory = np.zeros((self.mem_size, *input_shape), dtype=np.float32)
+        self.new_state_memory = np.zeros(
+            (self.mem_size, *input_shape), dtype=np.float32
+        )
         self.action_memory = np.zeros((self.mem_size, n_actions), dtype=np.float32)
         self.reward_memory = np.zeros(self.mem_size, dtype=np.float32)
         self.terminal_memory = np.zeros(self.mem_size, dtype=np.float32)
 
-    def store_transition(self, state: np.ndarray, action: np.ndarray, reward: float, new_state: np.ndarray, done: bool) -> None:
+    def store_transition(
+        self,
+        state: np.ndarray,
+        action: np.ndarray,
+        reward: float,
+        new_state: np.ndarray,
+        done: bool,
+    ) -> None:
         """
         Store a new experience in the buffer, overwriting the oldest if full.
 
@@ -37,7 +48,9 @@ class ReplayBuffer:
         self.terminal_memory[index] = 1 - int(done)  # 0 if done, 1 otherwise
         self.mem_cntr += 1
 
-    def sample_buffer(self, batch_size: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def sample_buffer(
+        self, batch_size: int
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Sample a random batch of experiences from the buffer.
 
@@ -49,8 +62,10 @@ class ReplayBuffer:
         """
         max_mem = min(self.mem_cntr, self.mem_size)  # Only sample from filled part
         batch = np.random.choice(max_mem, batch_size)  # Random indices
-        return (self.state_memory[batch],
-                self.action_memory[batch],
-                self.reward_memory[batch],
-                self.new_state_memory[batch],
-                self.terminal_memory[batch])
+        return (
+            self.state_memory[batch],
+            self.action_memory[batch],
+            self.reward_memory[batch],
+            self.new_state_memory[batch],
+            self.terminal_memory[batch],
+        )
