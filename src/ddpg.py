@@ -13,480 +13,185 @@
 import os
 import numpy as np
 import tensorflow as tf
-from tensorflow.initializers import random_uniform
 
-class OUActionNoise(object):
-    """
-    Ornstein-Uhlenbeck process for generating temporally correlated noise.
-    Used in DDPG for exploration in continuous action spaces.
-    Inherits from 'object' for compatibility with Python 2/3 style classes.
-    """
-    def __init__(self, mu, sigma, theta=0.15, dt=1e-2, x0=None):
-        """
-        Initialize the OUActionNoise process.
-
-        Args:
-            mu (np.ndarray): The mean value (center) of the noise process.
-            sigma (float or np.ndarray): The volatility (scale) of the noise.
-            theta (float): The rate at which the noise reverts to the mean.
-            dt (float): The time step for discretization.
-            x0 (np.ndarray or None): Optional initial state for the process.
-        """
-        self.mu = mu                  # Mean of the noise process
-        self.sigma = sigma            # Volatility parameter
-        self.theta = theta            # Speed of mean reversion
-        self.dt = dt                  # Time step
-        self.x0 = x0                  # Initial state
-        self.reset()                  # Initialize the previous state
+class OUActionNoise:
+    """Ornstein-Uhlenbeck process for exploration noise."""
+    def __init__(self, mu, sigma=0.2, theta=0.15, dt=1e-2, x0=None):
+        self.mu = mu
+        self.sigma = sigma
+        self.theta = theta
+        self.dt = dt
+        self.x0 = x0
+        self.reset()
 
     def __call__(self):
-        """
-        Generate the next noise value using the OU process.
-
-        Returns:
-            np.ndarray: The next noise value, updated from the previous state.
-        """
-        # Compute next value based on previous value, mean, and random noise
         x = self.x_prev + self.theta * (self.mu - self.x_prev) * self.dt + \
             self.sigma * np.sqrt(self.dt) * np.random.normal(size=self.mu.shape)
-        self.x_prev = x  # Update previous state
+        self.x_prev = x
         return x
-    
+
     def reset(self):
-        """
-        Reset the process to the initial state or zeros if not provided.
-        """
-        # Set previous state to initial value or zeros
         self.x_prev = self.x0 if self.x0 is not None else np.zeros_like(self.mu)
 
-class ReplayBuffer(object):
-    """
-    Replay buffer for storing and sampling experience tuples.
-    Used in DDPG to enable off-policy learning by sampling random batches of past experiences.
-    """
+class ReplayBuffer:
+    """Experience replay buffer for DDPG."""
     def __init__(self, max_size, input_shape, n_actions):
-        # Maximum number of transitions to store in the buffer
-        self.memory_size = max_size
-        # Counter to keep track of the number of transitions added
-        self.memory_counter = 0
-        # Memory arrays for states, new states, actions, rewards, and terminal flags
-        self.state_memory = np.zeros((self.memory_size, *input_shape), dtype=np.float32)
-        self.new_state_memory = np.zeros((self.memory_size, *input_shape), dtype=np.float32)
-        self.action_memory = np.zeros((self.memory_size, n_actions), dtype=np.float32)
-        self.reward_memory = np.zeros(self.memory_size, dtype=np.float32)
-        self.terminal_memory = np.zeros(self.memory_size, dtype=np.float32)  # Fixed dtype typo
+        self.mem_size = max_size
+        self.mem_cntr = 0
+        self.state_memory = np.zeros((self.mem_size, *input_shape), dtype=np.float32)
+        self.new_state_memory = np.zeros((self.mem_size, *input_shape), dtype=np.float32)
+        self.action_memory = np.zeros((self.mem_size, n_actions), dtype=np.float32)
+        self.reward_memory = np.zeros(self.mem_size, dtype=np.float32)
+        self.terminal_memory = np.zeros(self.mem_size, dtype=np.float32)
 
     def store_transition(self, state, action, reward, new_state, done):
-        """
-        Store a new experience in the buffer, overwriting the oldest if full.
-
-        Args:
-            state (np.ndarray): Current state.
-            action (np.ndarray): Action taken.
-            reward (float): Reward received.
-            new_state (np.ndarray): Next state after action.
-            done (bool): Whether the episode ended after this transition.
-        """
-        index = self.memory_counter % self.memory_size  # Circular buffer index
+        index = self.mem_cntr % self.mem_size
         self.state_memory[index] = state
+        self.new_state_memory[index] = new_state
         self.action_memory[index] = action
         self.reward_memory[index] = reward
-        self.new_state_memory[index] = new_state
-        self.terminal_memory[index] = 1 - int(done)  # 0 if done, 1 otherwise
-        self.memory_counter += 1
+        self.terminal_memory[index] = 1 - int(done)
+        self.mem_cntr += 1
 
     def sample_buffer(self, batch_size):
-        """
-        Sample a random batch of experiences from the buffer.
+        max_mem = min(self.mem_cntr, self.mem_size)
+        batch = np.random.choice(max_mem, batch_size)
+        return (self.state_memory[batch],
+                self.action_memory[batch],
+                self.reward_memory[batch],
+                self.new_state_memory[batch],
+                self.terminal_memory[batch])
 
-        Args:
-            batch_size (int): Number of samples to return.
-
-        Returns:
-            Tuple of (states, actions, rewards, new_states, terminals)
-        """
-        max_mem = min(self.memory_counter, self.memory_size)  # Only sample from filled part
-        batch = np.random.choice(max_mem, batch_size)  # Random indices
-
-        states = self.state_memory[batch]
-        actions = self.action_memory[batch]
-        rewards = self.reward_memory[batch]
-        new_states = self.new_state_memory[batch]
-        terminal = self.terminal_memory[batch]
-
-        return states, actions, rewards, new_states, terminal
-    
-class Actor(object):
-    """
-    Actor network for DDPG.
-    Responsible for learning the deterministic policy (mapping states to actions).
-    """
-    def __init__(self, lr, n_actions, name, input_dims, sess, fcl_dims, fc2_dims, action_bound, batch_size=64, chkpt_dir='tmp/ddpg'):
-        # Learning rate for optimizer
-        self.lr = lr
-        # Number of actions in the environment
-        self.n_actions = n_actions
-        # Name scope for the network (useful for TensorFlow variable scoping)
-        self.name = name
-        # Input dimensions (state space)
-        self.input_dims = input_dims
-        # TensorFlow session
-        self.sess = sess
-        # Number of units in the first fully connected layer
-        self.fcl_dims = fcl_dims
-        # Number of units in the second fully connected layer
-        self.fc2_dims = fc2_dims
-        # Action bound for scaling output actions
+class Actor(tf.keras.Model):
+    """Actor network."""
+    def __init__(self, n_actions, fc1_dims, fc2_dims, action_bound):
+        super(Actor, self).__init__()
+        self.fc1 = tf.keras.layers.Dense(fc1_dims, activation='relu')
+        self.fc2 = tf.keras.layers.Dense(fc2_dims, activation='relu')
+        self.out = tf.keras.layers.Dense(n_actions, activation='tanh')
         self.action_bound = action_bound
-        # Batch size for training
-        self.batch_size = batch_size
-        # Directory to save checkpoints
-        self.chkpt_dir = chkpt_dir
 
-        # Build the actor network
-        self.build_network()
-        # Get all trainable variables in this scope
-        self.params = tf.trainable_variables(scope=self.name)
-        # TensorFlow saver for saving/loading checkpoints
-        self.saver = tf.train.Saver()
-        # Path to save checkpoints
-        self.checkpoint_file = os.path.join(self.chkpt_dir, self.name + '_ddpg.ckpt')
+    def call(self, state):
+        x = self.fc1(state)
+        x = self.fc2(x)
+        x = self.out(x)
+        return x * self.action_bound
 
-        # Compute unnormalized gradients of the actor loss w.r.t. actor parameters
-        self.unnormalized_actor_gradients = tf.gradients(self.mu, self.params, -self.action_gradient)
-        # Normalize gradients by batch size
-        self.actor_gradients = list(map(lambda x: tf.div(x, self.batch_size), self.unnormalized_actor_gradients))
-        # Optimizer operation for applying gradients
-        self.optimize = tf.train.AdamOptimizer(self.lr).apply_gradients(zip(self.actor_gradients, self.params))
+class Critic(tf.keras.Model):
+    """Critic network."""
+    def __init__(self, fc1_dims, fc2_dims, n_actions):
+        super(Critic, self).__init__()
+        self.fc1 = tf.keras.layers.Dense(fc1_dims, activation='relu')
+        self.fc2 = tf.keras.layers.Dense(fc2_dims, activation='relu')
+        self.q = tf.keras.layers.Dense(1, activation=None)
 
-    def build_network(self):
-        """
-        Build the TensorFlow computation graph for the actor network.
-        """
-        with tf.variable_scope(self.name):
-            # Placeholder for input states
-            self.input = tf.placeholder(tf.float32, shape=[None, *self.input_dims], name='inputs')
-            # Placeholder for action gradients (from the critic)
-            self.action_gradient = tf.placeholder(tf.float32, shape=[None, self.n_actions], name='action_gradients')
+        self.action_fc = tf.keras.layers.Dense(fc2_dims, activation='relu')
 
-            # First dense layer with batch normalization and ReLU activation
-            f1 = 1 / np.sqrt(self.fcl_dims)
-            dense1 = tf.layers.dense(self.input, units=self.fcl_dims, kernel_initializer=random_uniform(-f1, f1), bias_initializer=random_uniform(-f1, f1))
-            batch1 = tf.layers.batch_normalization(dense1)
-            layer1_activation = tf.nn.relu(batch1)
+    def call(self, state, action):
+        x = self.fc1(state)
+        x = self.fc2(x)
+        a = self.action_fc(action)
+        x = tf.keras.layers.Add()([x, a])
+        x = tf.nn.relu(x)
+        q = self.q(x)
+        return q
 
-            # Second dense layer with batch normalization and ReLU activation
-            f2 = 1 / np.sqrt(self.fc2_dims)
-            dense2 = tf.layers.dense(layer1_activation, units=self.fc2_dims, kernel_initializer=random_uniform(-f2, f2), bias_initializer=random_uniform(-f2, f2))
-            batch2 = tf.layers.batch_normalization(dense2)
-            layer2_activation = tf.nn.relu(batch2)
-
-            # Output layer with tanh activation, scaled by action_bound
-            f3 = 0.003
-            mu = tf.layers.dense(layer2_activation, units=self.n_actions, activation=tf.nn.tanh, kernel_initializer=random_uniform(-f3, f3), bias_initializer=random_uniform(-f3, f3))
-
-            # Scale output to action bounds
-            self.mu = tf.multiply(mu, self.action_bound, name='scaled_mu')
-
-    def predict(self, inputs):
-        """
-        Predict actions given input states.
-        Args:
-            inputs (np.ndarray): Batch of input states.
-        Returns:
-            np.ndarray: Predicted actions.
-        """
-        return self.sess.run(self.mu, feed_dict={self.input: inputs})
-    
-    def train(self, inputs, gradients):
-        """
-        Train the actor network using the provided action gradients.
-        Args:
-            inputs (np.ndarray): Batch of input states.
-            gradients (np.ndarray): Gradients from the critic.
-        """
-        self.sess.run(self.optimize, feed_dict={self.input: inputs, self.action_gradient: gradients})
-
-    def save_checkpoint(self):
-        """
-        Save the actor network parameters to disk.
-        """
-        print('... saving checkpoint for actor ...')
-        self.saver.save(self.sess, self.checkpoint_file)
-
-    def load_checkpoint(self):
-        """
-        Load the actor network parameters from disk.
-        """
-        print('... loading checkpoint for actor ...')
-        self.saver.restore(self.sess, self.checkpoint_file)
-        print('... loaded checkpoint for actor ...')
-
-class Critic(object):
-    """
-    Critic network for DDPG.
-    Responsible for estimating the Q-value (expected return) for state-action pairs.
-    """
-    def __init__(self, lr, n_actions, name, input_dims, sess, fcl_dims, fc2_dims, action_bound, batch_size=64, chkpt_dir='tmp/ddpg'):
-        # Learning rate for optimizer
-        self.lr = lr
-        # Number of actions in the environment
-        self.n_actions = n_actions
-        # Name scope for the network (useful for TensorFlow variable scoping)
-        self.name = name
-        # Input dimensions (state space)
-        self.input_dims = input_dims
-        # TensorFlow session
-        self.sess = sess
-        # Number of units in the first fully connected layer
-        self.fcl_dims = fcl_dims
-        # Number of units in the second fully connected layer
-        self.fc2_dims = fc2_dims
-        # Action bound for scaling output actions (not directly used in critic)
-        self.action_bound = action_bound
-        # Batch size for training
-        self.batch_size = batch_size
-        # Directory to save checkpoints
-        self.chkpt_dir = chkpt_dir
-
-        # Build the critic network
-        self.build_network()
-        # Get all trainable variables in this scope
-        self.params = tf.trainable_variables(scope=self.name)
-        # TensorFlow saver for saving/loading checkpoints
-        self.saver = tf.train.Saver()
-        # Path to save checkpoints
-        self.checkpoint_file = os.path.join(self.chkpt_dir, self.name + '_ddpg.ckpt')
-
-        # Optimizer operation for minimizing the critic loss
-        self.optimize = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
-
-        # Compute gradients of Q-values with respect to actions (for actor update)
-        self.action_gradients = tf.gradients(self.q, self.action, name='action_gradients')
-
-    def build_network(self):
-        """
-        Build the TensorFlow computation graph for the critic network.
-        """
-        with tf.variable_scope(self.name):
-            # Placeholder for input states
-            self.input = tf.placeholder(tf.float32, shape=[None, *self.input_dims], name='inputs')
-            # Placeholder for input actions
-            self.action = tf.placeholder(tf.float32, shape=[None, self.n_actions], name='actions')
-            # Placeholder for target Q values
-            self.q_target = tf.placeholder(tf.float32, shape=[None, 1], name='target')
-
-            # First dense layer with batch normalization and ReLU activation
-            f1 = 1 / np.sqrt(self.fcl_dims)
-            dense1 = tf.layers.dense(self.input, units=self.fcl_dims, kernel_initializer=random_uniform(-f1, f1), bias_initializer=random_uniform(-f1, f1))
-            batch1 = tf.layers.batch_normalization(dense1)
-            layer1_activation = tf.nn.relu(batch1)
-
-            # Second dense layer with batch normalization and ReLU activation
-            f2 = 1 / np.sqrt(self.fc2_dims)
-            dense2 = tf.layers.dense(layer1_activation, units=self.fc2_dims, kernel_initializer=random_uniform(-f2, f2), bias_initializer=random_uniform(-f2, f2))
-            batch2 = tf.layers.batch_normalization(dense2)
-
-            # Process action input through a dense layer
-            action_in = tf.layers.dense(self.action, units=self.fc2_dims, activation='relu')
-
-            # Combine state and action pathways
-            state_actions = tf.add(batch2, action_in)
-            state_actions = tf.nn.relu(state_actions)
-
-            # Output Q-value layer with L2 regularization
-            f3 = 0.003
-            self.q = tf.layers.dense(
-                state_actions,
-                units=1,
-                kernel_initializer=random_uniform(-f3, f3),
-                bias_initializer=random_uniform(-f3, f3),
-                kernel_regularizer=tf.keras.regularizers.l2(0.01),
-                name='q_value'
-            )
-            # Mean squared error loss for critic
-            self.loss = tf._losses.mean_squared_error(self.target, self.q, name='critic_loss')
-
-    def predict(self, inputs, actions):
-        """
-        Predict Q values given input states and actions.
-        Args:
-            inputs (np.ndarray): Batch of input states.
-            actions (np.ndarray): Batch of actions.
-        Returns:
-            np.ndarray: Predicted Q values.
-        """
-        return self.sess.run(self.q, feed_dict={self.input: inputs, self.action: actions})
-    
-    def train(self, inputs, actions, q_target):
-        """
-        Train the critic network using the provided states, actions, and target Q values.
-        Args:
-            inputs (np.ndarray): Batch of input states.
-            actions (np.ndarray): Batch of actions.
-            q_target (np.ndarray): Target Q values.
-        """
-        self.sess.run(self.optimize, feed_dict={self.input: inputs, self.action: actions, self.q_target: q_target})
-
-    def get_action_gradients(self, inputs, actions):
-        """
-        Get the gradients of the Q values with respect to the actions.
-        Args:
-            inputs (np.ndarray): Batch of input states.
-            actions (np.ndarray): Batch of actions.
-        Returns:
-            np.ndarray: Action gradients.
-        """
-        return self.sess.run(self.action_gradients, feed_dict={self.input: inputs, self.action: actions})
-    
-    def save_checkpoint(self):
-        """
-        Save the critic network parameters to disk.
-        """
-        print('... saving checkpoint for critic ...')
-        self.saver.save(self.sess, self.checkpoint_file)
-
-    def load_checkpoint(self):
-        """
-        Load the critic network parameters from disk.
-        """
-        print('... loading checkpoint for critic ...')
-        self.saver.restore(self.sess, self.checkpoint_file)
-        print('... loaded checkpoint for critic ...')
-
-class Agent(object):
-    """
-    DDPG Agent that combines Actor and Critic networks for training and inference.
-    Manages experience replay, target networks, exploration noise, and learning updates.
-    """
-    def __init__(self, alpha, beta, input_dims, tau, env, gamma=0.99, n_actions=2, max_size=1000000, layer1_size=400, layer2_size=300, batch_size=64):
-        # Discount factor for future rewards
+class Agent:
+    """DDPG Agent using TensorFlow 2.x and Keras."""
+    def __init__(
+        self, alpha, beta, input_dims, tau, env, gamma=0.99, n_actions=1,
+        max_size=1000000, layer1_size=400, layer2_size=300, batch_size=64
+    ):
         self.gamma = gamma
-        # Soft update parameter for target networks
         self.tau = tau
-        # Experience replay buffer
         self.memory = ReplayBuffer(max_size, input_dims, n_actions)
-        # Actor network (policy)
-        self.actor = Actor(alpha, n_actions, 'actor', input_dims, self.sess, layer1_size, layer2_size, env.action_space.high)
-        # Critic network (Q-value)
-        self.critic = Critic(beta, n_actions, 'critic', input_dims, self.sess, layer1_size, layer2_size)
-        # Target actor network (delayed copy for stability)
-        self.target_actor = Actor(alpha, n_actions, 'target_actor', input_dims, self.sess, layer1_size, layer2_size, env.action_space.high)
-        # Target critic network (delayed copy for stability)
-        self.target_critic = Critic(beta, n_actions, 'target_critic', input_dims, self.sess, layer1_size, layer2_size)
-        # Ornstein-Uhlenbeck noise for exploration in continuous action space
-        self.noise = OUActionNoise(mu=np.zeros(n_actions))
-        # Operations for soft-updating target critic network parameters
-        self.update_critic = [
-            self.target_critic.params[i].assign(
-                tf.multiply(self.critic.params[i], self.tau) +
-                tf.multiply(self.target_critic.params[i], 1 - self.tau)
-            ) for i in range(len(self.target_critic.params))
-        ]
-        # Operations for soft-updating target actor network parameters
-        self.update_actor = [
-            self.target_actor.params[i].assign(
-                tf.multiply(self.actor.params[i], self.tau) +
-                tf.multiply(self.target_actor.params[i], 1 - self.tau)
-            ) for i in range(len(self.target_actor.params))
-        ]
-        # Initialize all TensorFlow variables
-        self.sess.run(tf.global_variables_initializer())
-        # Hard update target networks to match main networks at start
-        self.update_network_parameters(first=True)
+        self.batch_size = batch_size
 
-    def update_network_parameters(self, first=False):
-        """
-        Update the target networks using soft updates.
-        Args:
-            first (bool): If True, initializes target networks to match actor and critic.
-        """
-        if first:
-            # On first call, copy weights exactly (tau=1)
-            old_tau = self.tau
-            self.tau = 1.0
-            self.target_critic.sess.run(self.update_critic)
-            self.target_actor.sess.run(self.update_actor)
-            self.tau = old_tau
-        else:
-            # Soft update: blend weights using tau
-            self.target_critic.sess.run(self.update_critic)
-            self.target_actor.sess.run(self.update_actor)
+        self.actor = Actor(n_actions, layer1_size, layer2_size, env.action_space.high[0])
+        self.critic = Critic(layer1_size, layer2_size, n_actions)
+        self.target_actor = Actor(n_actions, layer1_size, layer2_size, env.action_space.high[0])
+        self.target_critic = Critic(layer1_size, layer2_size, n_actions)
+
+        self.actor.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=alpha))
+        self.critic.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=beta))
+        self.target_actor.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=alpha))
+        self.target_critic.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=beta))
+
+        self.noise = OUActionNoise(mu=np.zeros(n_actions))
+        self.update_network_parameters(tau=1.0)  # Hard update at start
+
+    def update_network_parameters(self, tau=None):
+        """Soft update target network parameters."""
+        if tau is None:
+            tau = self.tau
+        weights = []
+        targets = []
+        for a, b in zip(self.actor.weights, self.target_actor.weights):
+            weights.append(a)
+            targets.append(b)
+        for i in range(len(weights)):
+            targets[i].assign(tau * weights[i] + (1 - tau) * targets[i].numpy())
+        weights = []
+        targets = []
+        for a, b in zip(self.critic.weights, self.target_critic.weights):
+            weights.append(a)
+            targets.append(b)
+        for i in range(len(weights)):
+            targets[i].assign(tau * weights[i] + (1 - tau) * targets[i].numpy())
 
     def remember(self, state, action, reward, new_state, done):
-        """
-        Store a transition in the replay buffer.
-        Args:
-            state (np.ndarray): Current state.
-            action (np.ndarray): Action taken.
-            reward (float): Reward received.
-            new_state (np.ndarray): Next state after action.
-            done (bool): Whether the episode ended after this transition.
-        """
         self.memory.store_transition(state, action, reward, new_state, done)
 
-    def choose_action(self, state):
-        """
-        Choose an action based on the current state using the actor network,
-        and add exploration noise for exploration.
-        Args:
-            state (np.ndarray): Current state.
-        Returns:
-            np.ndarray: Chosen action with added exploration noise.
-        """
-        state = state[np.newaxis, :]  # Add batch dimension
-        mu = self.actor.predict(state)  # Actor's deterministic action
-        noise = self.noise()           # OU noise for exploration
-        mu_prime = mu + noise          # Add noise to action
+    def choose_action(self, observation, evaluate=False):
+        # Ensure observation is a 2D float32 array
+        state = np.asarray(observation, dtype=np.float32)
+        if state.ndim == 1:
+            state = np.expand_dims(state, axis=0)
+        actions = self.actor(state)
+        if not evaluate:
+            actions += self.noise()
+        return np.clip(actions[0], -self.actor.action_bound, self.actor.action_bound)
 
-        return mu_prime[0]  # Return the action as a 1D array
-    
     def learn(self):
-        """
-        Sample a batch from the replay buffer and update the actor and critic networks.
-        Performs one gradient update for both networks using sampled experiences.
-        """
-        # Don't learn until the buffer has enough samples
-        if self.memory.memory_counter < self.batch_size:
+        if self.memory.mem_cntr < self.batch_size:
             return
-        # Sample a batch of experiences
-        state, action, reward, new_state, done = self.memory.sample_buffer(self.batch_size)
 
-        # Compute target Q-values using target networks
-        cricic_value = self.target_critic.predict(new_state, self.target_actor.predict(new_state))
+        states, actions, rewards, new_states, dones = self.memory.sample_buffer(self.batch_size)
 
-        # Compute targets for the critic update
-        target = []
-        for i in range(self.batch_size):
-            # If done, no future reward is added
-            target.append(reward[i] + self.gamma * cricic_value[i] * done[i])
-        target = np.reshape(target, (self.batch_size, 1))
+        states = tf.convert_to_tensor(states, dtype=tf.float32)
+        actions = tf.convert_to_tensor(actions, dtype=tf.float32)
+        rewards = tf.convert_to_tensor(rewards, dtype=tf.float32)
+        new_states = tf.convert_to_tensor(new_states, dtype=tf.float32)
+        dones = tf.convert_to_tensor(dones, dtype=tf.float32)
 
-        # Update critic network
-        _ = self.critic.train(state, action, target)
+        # Critic update
+        with tf.GradientTape() as tape:
+            target_actions = self.target_actor(new_states)
+            critic_value_ = tf.squeeze(self.target_critic(new_states, target_actions), 1)
+            target = rewards + self.gamma * critic_value_ * dones
+            critic_value = tf.squeeze(self.critic(states, actions), 1)
+            critic_loss = tf.keras.losses.MSE(target, critic_value)
+        critic_grad = tape.gradient(critic_loss, self.critic.trainable_variables)
+        self.critic.optimizer.apply_gradients(zip(critic_grad, self.critic.trainable_variables))
 
-        # Update actor network using the sampled policy gradient
-        a_outs = self.actor.predict(state)
-        grads = self.critic.get_action_gradients(state, a_outs)
-        self.actor.train(state, grads[0])
+        # Actor update
+        with tf.GradientTape() as tape:
+            new_policy_actions = self.actor(states)
+            actor_loss = -tf.reduce_mean(self.critic(states, new_policy_actions))
+        actor_grad = tape.gradient(actor_loss, self.actor.trainable_variables)
+        self.actor.optimizer.apply_gradients(zip(actor_grad, self.actor.trainable_variables))
 
         # Soft update target networks
         self.update_network_parameters()
 
     def save_models(self):
-        """
-        Save the actor and critic networks (and their targets) to disk.
-        """
-        self.actor.save_checkpoint()
-        self.target_actor.save_checkpoint()
-        self.critic.save_checkpoint()
-        self.target_critic.save_checkpoint()
+        self.actor.save_weights('actor.h5')
+        self.critic.save_weights('critic.h5')
+        self.target_actor.save_weights('target_actor.h5')
+        self.target_critic.save_weights('target_critic.h5')
 
     def load_models(self):
-        """
-        Load the actor and critic networks (and their targets) from disk.
-        """
-        self.actor.load_checkpoint()
-        self.target_actor.load_checkpoint()
-        self.critic.load_checkpoint()
-        self.target_critic.load_checkpoint()
+        self.actor.load_weights('actor.h5')
+        self.critic.load_weights('critic.h5')
+        self.target_actor.load_weights('target_actor.h5')
+        self.target_critic.load_weights('target_critic.h5')
