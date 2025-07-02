@@ -1,11 +1,11 @@
 # Imports
-from ddpg import Agent           # Import the DDPG Agent class
 import gym                      # OpenAI Gym for environment simulation
 import numpy as np              # NumPy for numerical operations
+from agent import Agent         # Import the Agent class from agent.py
 from utils import plotLearning  # Utility function for plotting learning curves
 
 if __name__ == '__main__':
-    # Create the Pendulum-v0 environment from Gym
+    # Create the Pendulum-v1 environment from Gym
     env = gym.make('Pendulum-v1')
     # Initialize the DDPG agent with hyperparameters and environment details
     agent = Agent(
@@ -31,11 +31,11 @@ if __name__ == '__main__':
         # Run one episode
         while not done:
             act = agent.choose_action(observation)                  # Agent selects action
-            new_state, reward, terminated, truncated, info = env.step(act)           # Take action in environment
-            done = terminated or truncated
-            agent.remember(observation, act, reward, new_state, int(done))  # Store transition
+            new_state, reward, terminated, truncated, info = env.step(act)  # Take action in environment
+            done = terminated or truncated                         # Check if episode is done
+            agent.remember(observation, act, reward, new_state, int(done))  # Store transition in replay buffer
             agent.learn()                                           # Agent learns from experience
-            score += reward                                         # Accumulate reward
+            score += reward                                         # Accumulate reward for this episode
             observation = new_state                                 # Move to next state
         score_history.append(score)                                 # Store episode score
         print(
