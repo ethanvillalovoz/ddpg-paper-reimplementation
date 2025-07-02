@@ -5,7 +5,8 @@ from typing import List
 
 def plotLearning(scores: List[float], filename: str, window: int = 100) -> None:
     """
-    Plots the running average of scores over a specified window and saves the plot to a file.
+    Plots the running average of scores over a specified window and saves the plot
+    to a file.
 
     Args:
         scores (list or np.ndarray): List of episode scores.

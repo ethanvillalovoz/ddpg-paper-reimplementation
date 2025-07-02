@@ -1,5 +1,4 @@
 import unittest
-import numpy as np
 from agent import Agent
 import gym
 from env_wrappers import NormalizedEnv
@@ -23,7 +22,7 @@ class TestAgent(unittest.TestCase):
         )
 
     def test_choose_action(self):
-        obs, _ = self.env.reset()  # Use self.env directly
+        obs, _ = self.env.reset()
         action = self.agent.choose_action(obs)
         self.assertEqual(action.shape, (1,))
 
@@ -33,7 +32,6 @@ class TestAgent(unittest.TestCase):
         new_obs, reward, terminated, truncated, _ = self.env.step(action)
         done = terminated or truncated
         self.agent.remember(obs, action, reward, new_obs, int(done))
-        # Should not raise error
         self.agent.learn()
 
 

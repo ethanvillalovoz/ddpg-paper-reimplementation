@@ -67,13 +67,9 @@ def main() -> None:
         # Run one episode
         while not done:
             act = agent.choose_action(observation)  # Agent selects action
-            new_state, reward, terminated, truncated, info = env.step(
-                act
-            )  # Take action in environment
+            new_state, reward, terminated, truncated, info = env.step(act)
             done = terminated or truncated  # Check if episode is done
-            agent.remember(
-                observation, act, reward, new_state, int(done)
-            )  # Store transition in replay buffer
+            agent.remember(observation, act, reward, new_state, int(done))
             agent.learn()  # Agent learns from experience
             score += reward  # Accumulate reward for this episode
             observation = new_state  # Move to next state

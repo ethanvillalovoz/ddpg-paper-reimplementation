@@ -9,7 +9,8 @@ from typing import Any, Optional
 class Agent:
     """
     DDPG Agent using TensorFlow 2.x and Keras.
-    Manages the actor/critic networks, target networks, replay buffer, and learning process.
+    Manages the actor/critic networks, target networks, replay buffer,
+    and learning process.
     """
 
     def __init__(
