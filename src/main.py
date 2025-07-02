@@ -6,6 +6,7 @@ from utils import plotLearning  # Utility function for plotting learning curves
 import yaml                     # For loading configuration files
 from typing import Any, Dict, List
 import logging                  # Add logging import
+from env_wrappers import NormalizedEnv  # Add this import
 
 def load_config(path: str) -> Dict[str, Any]:
     """
@@ -30,6 +31,7 @@ def main() -> None:
     # Load hyperparameters and environment from config.yaml
     config = load_config('config.yaml')
     env = gym.make(config['env'])
+    env = NormalizedEnv(env)  # Wrap the environment for normalization
     agent = Agent(
         alpha=config['agent']['alpha'],
         beta=config['agent']['beta'],
