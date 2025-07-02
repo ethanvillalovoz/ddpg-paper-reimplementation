@@ -1,154 +1,238 @@
 # ddpg-paper-reimplementation
-Reimplementation of "Continuous Control with Deep Reinforcement Learning" (ICLR 2016) using Tensorflow.
 
-Using conda for my env:
-conda create -n DDPG python=3.10
+![Build](https://img.shields.io/badge/build-passing-brightgreen)
+![Python](https://img.shields.io/badge/python-3.10-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
 
- Paper Summary
-Title:
-Continuous Control with Deep Reinforcement Learning
-(Timothy P. Lillicrap et al., Google DeepMind, ICLR 2016)
+---
 
-🧠 What the Paper Is About
-The paper introduces Deep Deterministic Policy Gradient (DDPG) — a model-free, off-policy reinforcement learning algorithm designed to solve continuous action space problems.
+## 🎯 Introduction
+A clean, modular reimplementation of "Continuous Control with Deep Reinforcement Learning" (ICLR 2016, Lillicrap et al.) in TensorFlow, designed for reproducibility, extensibility, and research comparison.
 
-DDPG builds upon the Deterministic Policy Gradient (DPG) algorithm and incorporates innovations from Deep Q-Networks (DQN), such as:
+---
 
-Experience replay
+## 📖 Description
+This project implements the Deep Deterministic Policy Gradient (DDPG) algorithm, a model-free, off-policy actor-critic method for continuous control. It features:
+- Modular codebase (separate agent, networks, buffer, noise, wrappers)
+- Configurable hyperparameters via YAML
+- Experiment tracking (TensorBoard, config archiving)
+- Hyperparameter sweeps and result comparison
+- Unit tests for all modules
+- Reproducibility (seed control, config/version logging)
 
-Target networks for stability
+---
 
-DDPG enables stable and scalable learning of control policies in complex environments, including physical simulations and raw pixel inputs.
+## 🖼️ Visuals
+![Learning Curve Example](pendulum.png)
 
-⚙️ Implementation Summary
-✅ Algorithm Components
-Actor-Critic Framework:
+To compare multiple runs, use `python compare_results.py` to generate aggregate plots from all experiments in `results/`.
 
-Actor: learns deterministic policy 
-𝜇
-(
-𝑠
-∣
-𝜃
-𝜇
-)
-μ(s∣θ 
-μ
- )
+---
 
-Critic: learns action-value function 
-𝑄
-(
-𝑠
-,
-𝑎
-∣
-𝜃
-𝑄
-)
-Q(s,a∣θ 
-Q
- )
+## ⚡ Prerequisites / Requirements
+- Python 3.10+
+- Conda (recommended)
+- Apple Silicon: `tensorflow-macos`, `tensorflow-metal`
+- See `requirements.txt` and `requirements-lock.txt` for all dependencies
 
-Target Networks:
-Slowly-updated copies of actor and critic used for computing stable targets.
+---
 
-Experience Replay Buffer:
-Stores transitions 
-(
-𝑠
-,
-𝑎
-,
-𝑟
-,
-𝑠
-′
-)
-(s,a,r,s 
-′
- ) to sample uncorrelated minibatches.
+## 🛠️ Technologies Used
+- TensorFlow 2.x
+- OpenAI Gym
+- NumPy
+- Matplotlib
+- PyYAML
+- pytest, flake8, black (for testing/linting)
 
-Exploration Noise:
-Added noise to actions using Ornstein-Uhlenbeck process for better exploration in physical environments.
+---
 
-Batch Normalization:
-Normalizes inputs to stabilize training across varying scales.
+## 🚀 Quickstart
 
-🏗️ Neural Network Architecture
-Actor and Critic: 2 fully connected hidden layers (400 + 300 units)
+1. **Clone the repository**
+   ```sh
+   git clone https://github.com/yourusername/ddpg-paper-reimplementation.git
+   cd ddpg-paper-reimplementation
+   ```
 
-Pixel Input: 3 convolutional layers + 2 fully connected layers
+2. **Create and activate a Python environment**
+   ```sh
+   conda create -n DDPG python=3.10
+   conda activate DDPG
+   ```
 
-Optimizer: Adam (1e-4 for actor, 1e-3 for critic)
+3. **Install dependencies**
+   ```sh
+   pip install -r requirements.txt
+   ```
 
-Target update rate: 
-𝜏
-=
-0.001
-τ=0.001
+4. **Run a single experiment**
+   ```sh
+   ./train.sh
+   # or
+   python src/main.py --config config.yaml
+   ```
 
-Discount factor: 
-𝛾
-=
-0.99
-γ=0.99
+5. **Run all tests**
+   ```sh
+   ./test.sh
+   # or
+   pytest tests
+   ```
 
-Replay buffer size: 1 million
+6. **Run a hyperparameter sweep**
+   ```sh
+   python sweep.py
+   ```
 
-📊 Results Summary
-🎯 Environments Tested
-MuJoCo physical control tasks: e.g., Pendulum, Cartpole, Reacher, Cheetah, Walker2d, Gripper
+7. **Compare results**
+   ```sh
+   python compare_results.py
+   ```
 
-TORCS driving simulator
+8. **View TensorBoard logs**
+   ```sh
+   tensorboard --logdir runs
+   ```
 
-Both low-dimensional state inputs and high-dimensional pixel inputs
+---
 
-📈 Key Findings
-DDPG solved over 20 continuous control tasks with the same algorithm and hyperparameters.
+## ⚡ Advanced Usage
+- **Hyperparameter Sweeps:**
+  ```sh
+  python sweep.py
+  ```
+  This will run multiple experiments with different hyperparameters and save results in `results/` and `experiments/`.
 
-In many tasks, DDPG matched or outperformed a planning-based baseline (iLQG with full access to environment dynamics).
+- **Compare Results:**
+  ```sh
+  python compare_results.py
+  ```
+  This will plot all learning curves from the sweep for easy comparison.
 
-Learning directly from pixels was successful in most environments.
+- **TensorBoard Tracking:**
+  ```sh
+  tensorboard --logdir runs
+  ```
+  View experiment metrics and hyperparameters in your browser.
 
-Sample efficiency: policies learned in ≤ 2.5 million steps — far fewer than DQN on Atari (50M+ steps).
+- **Pretrained Models:**
+  Place `.h5` model files in the project root or specify paths in `config.yaml`. Call `agent.load_models()` in `src/main.py` to load them before training or evaluation.
 
-Stability was significantly improved using:
+---
 
-Replay buffer
+## ⚙️ Configuration
 
-Target networks
+All hyperparameters and environment settings are in [`config.yaml`](config.yaml):
 
-Batch normalization
+| Key                   | Description                                      | Example         |
+|-----------------------|--------------------------------------------------|-----------------|
+| `env`                 | Gym environment name                             | `Pendulum-v1`   |
+| `agent.alpha`         | Actor learning rate                              | `0.0001`        |
+| `agent.beta`          | Critic learning rate                             | `0.001`         |
+| `agent.input_dims`    | State space dimensions                           | `[3]`           |
+| `agent.tau`           | Soft update parameter for target networks        | `0.001`         |
+| `agent.batch_size`    | Batch size for training                          | `64`            |
+| `agent.layer1_size`   | First hidden layer size                          | `400`           |
+| `agent.layer2_size`   | Second hidden layer size                         | `300`           |
+| `agent.n_actions`     | Number of action dimensions                      | `1`             |
+| `agent.gamma`         | Discount factor                                  | `0.99`          |
+| `agent.max_size`      | Replay buffer size                               | `1000000`       |
+| `actor_path`          | Path to save/load actor weights                  | `actor.h5`      |
+| `critic_path`         | Path to save/load critic weights                 | `critic.h5`     |
+| `target_actor_path`   | Path to save/load target actor weights           | `target_actor.h5`|
+| `target_critic_path`  | Path to save/load target critic weights          | `target_critic.h5`|
 
-🏆 Performance Example (Normalized Returns)
-Environment	DDPG (Low-Dim)	DDPG (Pixels)	Planner (iLQG)
-Pendulum	0.95	0.66	1.0
-Cartpole	0.84	0.48	1.0
-Cheetah	0.90	0.46	1.0
-Walker2d	0.70	0.94	1.0
-Torcs (raw score)	~1840	~1876	~1960
+You can override any value by editing `config.yaml` or passing a different file with `--config`.
 
-(0 = random policy, 1 = planning-based controller)
+---
 
-🔑 Key Contributions
-First deep RL method to scale to high-dimensional continuous action spaces.
+## 🧪 Automated Test
+- All modules have unit tests in `tests/`.
+- Run `pytest tests` or `./test.sh` to verify correctness.
 
-Stable and general method for learning from raw pixels without task-specific tuning.
+---
 
-Foundation for later algorithms like TD3 and SAC.
+## 📁 Folder Structure
+```
+├── src/                # Main source code
+│   ├── agent.py
+│   ├── env_wrappers.py
+│   ├── main.py
+│   ├── networks.py
+│   ├── ou_noise.py
+│   ├── replay_buffer.py
+│   └── utils.py
+├── tests/              # Unit tests
+├── results/            # Plots and raw scores from experiments
+├── experiments/        # Archived config files for each run
+├── runs/               # TensorBoard logs
+├── sweep.py            # Hyperparameter sweep script
+├── compare_results.py  # Aggregate and plot results
+├── train.sh            # Training script
+├── test.sh             # Test script
+├── plot.sh             # (Optional) Plotting script
+├── config.yaml         # Main config
+├── requirements.txt    # Main dependencies
+├── requirements-lock.txt # Locked dependencies
+├── README.md           # This file
+```
 
-Ideas:
-# Need a replay buffer class
-# Need a class for a target Q network (function of state, action)
-# We will use batch normalization
-# The policy is deterministic, how to handle explore exploit?
-# Deterministic policy means outputs the actual action insteat of a probability distribution
-# Will need a way to bound the actions to the environment limits
-# We gave two actor abd two critic networks, a target for each
-# Updates are soft, according to theta_prime = tau * theta + (1 - tau) * theta_prime, with tau << 1
-# The targert actor is just the evaluation actor plus some noise process
-# They used Ornstein-Uhlenbeck noise for exploration
+---
 
-For tests we did this:
-PYTHONPATH=src pytest tests
+## 🛣️ Roadmap
+- [x] Modularize codebase
+- [x] Add config file and logging
+- [x] Add unit tests
+- [x] Add experiment tracking (TensorBoard)
+- [x] Add hyperparameter sweeps
+- [x] Add result comparison script
+- [ ] Add more environments (e.g., MuJoCo, Cartpole)
+- [ ] Add pretrained model weights
+- [ ] Add advanced logging (e.g., Weights & Biases)
+- [ ] Add Dockerfile for full reproducibility
+
+---
+
+## 🤝 Contribution
+Contributions are welcome! Please see `CONTRIBUTING.md` for guidelines. To propose a feature or report a bug, open an issue or submit a pull request.
+
+---
+
+## 📚 Documentation & FAQ
+- For more details, see the `docs/` folder.
+- If you encounter issues, check the FAQ in the docs or open an issue.
+
+---
+
+## ❓ FAQ / Troubleshooting
+
+**Q: I get a TensorFlow error about Apple Silicon.**
+A: Make sure you installed `tensorflow-macos` and `tensorflow-metal` as described in the requirements.
+
+**Q: My results are different each run.**
+A: Check that you set the `seed` in `config.yaml` and that all dependencies match those in `requirements-lock.txt`.
+
+**Q: How do I add a new environment?**
+A: Change the `env` key in `config.yaml` to your desired Gym environment and adjust `input_dims`/`n_actions` as needed.
+
+**Q: How do I resume training from a checkpoint?**
+A: Place your `.h5` model files in the project root or specify their paths in `config.yaml`, then call `agent.load_models()` in `src/main.py`.
+
+---
+
+## 📊 Research Comparison
+| Environment | DDPG (Paper, Low-Dim) | DDPG (Paper, Pixels) | This Repo (Low-Dim) | Notes/Discrepancies |
+|-------------|-----------------------|----------------------|---------------------|---------------------|
+| Pendulum    | 0.95                  | 0.66                 | (fill in)           | -                   |
+| Cartpole    | 0.84                  | 0.48                 | (fill in)           | -                   |
+| Cheetah     | 0.90                  | 0.46                 | (fill in)           | -                   |
+| Walker2d    | 0.70                  | 0.94                 | (fill in)           | -                   |
+| Torcs       | ~1840 (raw)           | ~1876 (raw)          | N/A                 | Not tested          |
+
+> Please update the table as you run more experiments!
+
+---
+
+## 📝 License
+MIT License

@@ -145,8 +145,17 @@ def main():
             tf.summary.scalar("Average100", np.mean(score_history[-100:]), step=i)
             tf.summary.scalar("Critic Loss", avg_critic_loss, step=i)
             tf.summary.scalar("Actor Loss", avg_actor_loss, step=i)
-    filename = "pendulum.png"
-    plotLearning(score_history, filename, window=100)  # Plot learning curve
+    os.makedirs("results", exist_ok=True)
+    # Save plot with hyperparameter info
+    filename = (
+        f"results/pendulum_tau{config['agent']['tau']}_bs{config['agent']['batch_size']}.png"
+    )
+    plotLearning(score_history, filename, window=100)
+    # Save raw scores for later comparison
+    score_file = (
+        f"results/pendulum_tau{config['agent']['tau']}_bs{config['agent']['batch_size']}_scores.npy"
+    )
+    np.save(score_file, np.array(score_history))
 
 
 if __name__ == "__main__":
