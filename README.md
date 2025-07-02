@@ -149,3 +149,6 @@ Ideas:
 # Updates are soft, according to theta_prime = tau * theta + (1 - tau) * theta_prime, with tau << 1
 # The targert actor is just the evaluation actor plus some noise process
 # They used Ornstein-Uhlenbeck noise for exploration
+
+For tests we did this:
+PYTHONPATH=src pytest tests
