@@ -4,12 +4,28 @@ import numpy as np              # NumPy for numerical operations
 from agent import Agent         # Import the Agent class from agent.py
 from utils import plotLearning  # Utility function for plotting learning curves
 import yaml                     # For loading configuration files
+from typing import Any, Dict, List
 
-if __name__ == '__main__':
+def load_config(path: str) -> Dict[str, Any]:
+    """
+    Load YAML configuration file.
+
+    Args:
+        path (str): Path to the YAML config file.
+
+    Returns:
+        dict: Configuration dictionary.
+    """
+    with open(path, 'r') as f:
+        return yaml.safe_load(f)
+
+def main() -> None:
+    """
+    Main training loop for DDPG agent.
+    Loads configuration, initializes environment and agent, and runs training episodes.
+    """
     # Load hyperparameters and environment from config.yaml
-    with open('config.yaml', 'r') as f:
-        config = yaml.safe_load(f)
-
+    config = load_config('config.yaml')
     env = gym.make(config['env'])
     agent = Agent(
         alpha=config['agent']['alpha'],
@@ -25,14 +41,14 @@ if __name__ == '__main__':
         max_size=config['agent']['max_size']
     )
 
-    score_history = []          # List to store episode scores
+    score_history: List[float] = []          # List to store episode scores
     np.random.seed(0)           # Set random seed for reproducibility
 
     # Main training loop for 1000 episodes
     for i in range(1000):
         observation, info = env.reset()   # Reset environment at the start of each episode
         done = False
-        score = 0
+        score = 0.0
         # Run one episode
         while not done:
             act = agent.choose_action(observation)                  # Agent selects action
@@ -44,9 +60,12 @@ if __name__ == '__main__':
             observation = new_state                                 # Move to next state
         score_history.append(score)                                 # Store episode score
         print(
-            'episode ', i,
+            'episode ', i+1,
             'score %.2f' % score,
             'trailing 100 games avg %.3f' % np.mean(score_history[-100:])
         )
     filename = 'pendulum.png'
     plotLearning(score_history, filename, window=100)               # Plot learning curve
+
+if __name__ == '__main__':
+    main()

@@ -3,6 +3,7 @@ import tensorflow as tf
 from ou_noise import OUActionNoise
 from replay_buffer import ReplayBuffer
 from networks import Actor, Critic
+from typing import Any, Optional
 
 class Agent:
     """
@@ -10,8 +11,8 @@ class Agent:
     Manages the actor/critic networks, target networks, replay buffer, and learning process.
     """
     def __init__(
-        self, alpha, beta, input_dims, tau, env, gamma=0.99, n_actions=1,
-        max_size=1000000, layer1_size=400, layer2_size=300, batch_size=64
+        self, alpha: float, beta: float, input_dims: list, tau: float, env: Any, gamma: float = 0.99, n_actions: int = 1,
+        max_size: int = 1000000, layer1_size: int = 400, layer2_size: int = 300, batch_size: int = 64
     ):
         # Discount factor for future rewards
         self.gamma = gamma
@@ -40,7 +41,7 @@ class Agent:
         # Hard update target networks to match main networks at start
         self.update_network_parameters(tau=1.0)
 
-    def update_network_parameters(self, tau=None):
+    def update_network_parameters(self, tau: Optional[float] = None) -> None:
         """
         Soft update target network parameters.
         Args:
@@ -65,13 +66,13 @@ class Agent:
         for i in range(len(weights)):
             targets[i].assign(tau * weights[i] + (1 - tau) * targets[i].numpy())
 
-    def remember(self, state, action, reward, new_state, done):
+    def remember(self, state: np.ndarray, action: np.ndarray, reward: float, new_state: np.ndarray, done: bool) -> None:
         """
         Store a transition in the replay buffer.
         """
         self.memory.store_transition(state, action, reward, new_state, done)
 
-    def choose_action(self, observation, evaluate=False):
+    def choose_action(self, observation: np.ndarray, evaluate: bool = False) -> np.ndarray:
         """
         Choose an action based on the current state using the actor network,
         and add exploration noise for exploration.
@@ -90,7 +91,7 @@ class Agent:
             actions += self.noise()
         return np.clip(actions[0], -self.actor.action_bound, self.actor.action_bound)
 
-    def learn(self):
+    def learn(self) -> None:
         """
         Sample a batch from the replay buffer and update the actor and critic networks.
         Performs one gradient update for both networks using sampled experiences.
@@ -126,7 +127,7 @@ class Agent:
         # Soft update target networks
         self.update_network_parameters()
 
-    def save_models(self):
+    def save_models(self) -> None:
         """
         Save the actor and critic networks (and their targets) to disk.
         """
@@ -135,7 +136,7 @@ class Agent:
         self.target_actor.save_weights('target_actor.h5')
         self.target_critic.save_weights('target_critic.h5')
 
-    def load_models(self):
+    def load_models(self) -> None:
         """
         Load the actor and critic networks (and their targets) from disk.
         """

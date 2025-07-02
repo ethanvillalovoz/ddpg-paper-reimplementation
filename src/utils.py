@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from typing import List
 
-def plotLearning(scores, filename, window=100):
+def plotLearning(scores: List[float], filename: str, window: int = 100) -> None:
     """
     Plots the running average of scores over a specified window and saves the plot to a file.
 

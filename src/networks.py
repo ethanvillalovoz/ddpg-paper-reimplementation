@@ -1,4 +1,5 @@
 import tensorflow as tf
+from typing import Any
 
 class Actor(tf.keras.Model):
     """
@@ -6,7 +7,7 @@ class Actor(tf.keras.Model):
     Responsible for learning the deterministic policy (mapping states to actions).
     Inherits from tf.keras.Model for easy integration with TensorFlow 2.x training.
     """
-    def __init__(self, n_actions, fc1_dims, fc2_dims, action_bound):
+    def __init__(self, n_actions: int, fc1_dims: int, fc2_dims: int, action_bound: Any):
         super(Actor, self).__init__()
         # First fully connected layer
         self.fc1 = tf.keras.layers.Dense(fc1_dims, activation='relu')
@@ -17,7 +18,7 @@ class Actor(tf.keras.Model):
         # Action bound for scaling output actions to environment limits
         self.action_bound = action_bound
 
-    def call(self, state):
+    def call(self, state: tf.Tensor) -> tf.Tensor:
         """
         Forward pass for the actor network.
         Args:
@@ -36,7 +37,7 @@ class Critic(tf.keras.Model):
     Responsible for estimating the Q-value (expected return) for state-action pairs.
     Inherits from tf.keras.Model for easy integration with TensorFlow 2.x training.
     """
-    def __init__(self, fc1_dims, fc2_dims, n_actions):
+    def __init__(self, fc1_dims: int, fc2_dims: int, n_actions: int):
         super(Critic, self).__init__()
         # First fully connected layer for state input
         self.fc1 = tf.keras.layers.Dense(fc1_dims, activation='relu')
@@ -47,7 +48,7 @@ class Critic(tf.keras.Model):
         # Separate fully connected layer for action input
         self.action_fc = tf.keras.layers.Dense(fc2_dims, activation='relu')
 
-    def call(self, state, action):
+    def call(self, state: tf.Tensor, action: tf.Tensor) -> tf.Tensor:
         """
         Forward pass for the critic network.
         Args:

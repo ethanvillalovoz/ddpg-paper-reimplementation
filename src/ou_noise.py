@@ -1,11 +1,12 @@
 import numpy as np
+from typing import Optional
 
 class OUActionNoise:
     """
     Ornstein-Uhlenbeck process for generating temporally correlated noise.
     Commonly used in DDPG for exploration in continuous action spaces.
     """
-    def __init__(self, mu, sigma=0.2, theta=0.15, dt=1e-2, x0=None):
+    def __init__(self, mu: np.ndarray, sigma: float = 0.2, theta: float = 0.15, dt: float = 1e-2, x0: Optional[np.ndarray] = None):
         """
         Initialize the noise process.
         Args:
@@ -22,7 +23,7 @@ class OUActionNoise:
         self.x0 = x0                  # Initial state
         self.reset()                  # Initialize the previous state
 
-    def __call__(self):
+    def __call__(self) -> np.ndarray:
         """
         Generate the next noise value using the OU process.
         Returns:
@@ -33,7 +34,7 @@ class OUActionNoise:
         self.x_prev = x  # Update previous state
         return x
 
-    def reset(self):
+    def reset(self) -> None:
         """
         Reset the process to the initial state or zeros if not provided.
         """

@@ -1,11 +1,12 @@
 import numpy as np
+from typing import Tuple
 
 class ReplayBuffer:
     """
     Experience replay buffer for DDPG.
     Stores transitions and allows random sampling for training.
     """
-    def __init__(self, max_size, input_shape, n_actions):
+    def __init__(self, max_size: int, input_shape: list, n_actions: int):
         # Maximum number of transitions to store
         self.mem_size = max_size
         # Counter to keep track of the number of transitions added
@@ -17,7 +18,7 @@ class ReplayBuffer:
         self.reward_memory = np.zeros(self.mem_size, dtype=np.float32)
         self.terminal_memory = np.zeros(self.mem_size, dtype=np.float32)
 
-    def store_transition(self, state, action, reward, new_state, done):
+    def store_transition(self, state: np.ndarray, action: np.ndarray, reward: float, new_state: np.ndarray, done: bool) -> None:
         """
         Store a new experience in the buffer, overwriting the oldest if full.
 
@@ -36,7 +37,7 @@ class ReplayBuffer:
         self.terminal_memory[index] = 1 - int(done)  # 0 if done, 1 otherwise
         self.mem_cntr += 1
 
-    def sample_buffer(self, batch_size):
+    def sample_buffer(self, batch_size: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Sample a random batch of experiences from the buffer.
 
