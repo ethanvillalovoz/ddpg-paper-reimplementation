@@ -43,7 +43,9 @@ To compare multiple runs, use `python compare_results.py` to generate aggregate 
 - NumPy
 - Matplotlib
 - PyYAML
+- pandas, seaborn (for analysis)
 - pytest, flake8, black (for testing/linting)
+- Jupyter Notebook (for analysis)
 
 ---
 
@@ -110,6 +112,9 @@ To compare multiple runs, use `python compare_results.py` to generate aggregate 
   ```
   This will plot all learning curves from the sweep for easy comparison.
 
+- **Jupyter/Notebook Analysis:**
+  Open [`notebooks/analyze_sweeps.ipynb`](notebooks/analyze_sweeps.ipynb) for a full, interactive analysis of sweep results, including tables, plots, and advanced metrics.
+
 - **TensorBoard Tracking:**
   ```sh
   tensorboard --logdir runs
@@ -118,6 +123,17 @@ To compare multiple runs, use `python compare_results.py` to generate aggregate 
 
 - **Pretrained Models:**
   Place `.h5` model files in the project root or specify paths in `config.yaml`. Call `agent.load_models()` in `src/main.py` to load them before training or evaluation.
+
+---
+
+## 📈 Results Summary & Analysis
+
+- After running sweeps, aggregate and analyze results using the notebook:
+  - Open [`notebooks/analyze_sweeps.ipynb`](notebooks/analyze_sweeps.ipynb) in Jupyter or VS Code.
+  - Run all cells to generate summary tables, learning curve plots, loss diagnostics, sample efficiency, and hyperparameter heatmaps.
+  - Export your analysis as HTML or PDF for sharing or publication.
+
+- For a static summary and interpretation of results, see [`docs/analysis.md`](docs/analysis.md).
 
 ---
 
@@ -176,6 +192,11 @@ You can override any value by editing `config.yaml` or passing a different file 
 ├── requirements.txt    # Main dependencies
 ├── requirements-lock.txt # Locked dependencies
 ├── README.md           # This file
+├── notebooks/          # Jupyter notebooks for analysis
+│   └── analyze_sweeps.ipynb
+├── docs/               # Documentation and analysis
+│   ├── architecture.md
+│   └── analysis.md
 ```
 
 ---
@@ -187,6 +208,7 @@ You can override any value by editing `config.yaml` or passing a different file 
 - [x] Add experiment tracking (TensorBoard)
 - [x] Add hyperparameter sweeps
 - [x] Add result comparison script
+- [x] Add Jupyter/Markdown analysis workflow
 - [ ] Add more environments (e.g., MuJoCo, Cartpole)
 - [ ] Add pretrained model weights
 - [ ] Add advanced logging (e.g., Weights & Biases)
