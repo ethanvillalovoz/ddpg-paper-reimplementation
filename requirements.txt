@@ -8,3 +8,7 @@ tensorflow-metal
 pytest
 black
 flake8
+pandas
+seaborn
+nbconvert
+pandoc
