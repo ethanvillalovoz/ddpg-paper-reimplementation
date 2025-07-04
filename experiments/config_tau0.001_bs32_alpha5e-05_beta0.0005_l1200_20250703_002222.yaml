@@ -1,0 +1,17 @@
+actor_path: actor.h5
+agent:
+  alpha: 5.0e-05
+  batch_size: 32
+  beta: 0.0005
+  gamma: 0.99
+  input_dims:
+  - 3
+  layer1_size: 200
+  layer2_size: 300
+  max_size: 1000000
+  n_actions: 1
+  tau: 0.001
+critic_path: critic.h5
+env: Pendulum-v1
+target_actor_path: target_actor.h5
+target_critic_path: target_critic.h5

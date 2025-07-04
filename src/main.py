@@ -99,6 +99,8 @@ def main():
             tf.summary.text(f"hyperparam/{key}", str(value), step=0)
 
     score_history: List[float] = []  # List to store episode scores
+    critic_loss_history: List[float] = []
+    actor_loss_history: List[float] = []
     np.random.seed(0)  # Set random seed for reproducibility
 
     # Main training loop for 1000 episodes
@@ -125,12 +127,8 @@ def main():
             score += reward  # Accumulate reward for this episode
             observation = new_state  # Move to next state
         score_history.append(score)  # Store episode score
-        avg_critic_loss = (
-            np.mean(episode_critic_losses) if episode_critic_losses else 0
-        )
-        avg_actor_loss = (
-            np.mean(episode_actor_losses) if episode_actor_losses else 0
-        )
+        avg_critic_loss = np.mean(episode_critic_losses) if episode_critic_losses else 0
+        avg_actor_loss = np.mean(episode_actor_losses) if episode_actor_losses else 0
         logging.info(
             "episode %d score %.2f trailing 100 games avg %.3f critic_loss %.4f actor_loss %.4f",
             i + 1,
@@ -145,15 +143,26 @@ def main():
             tf.summary.scalar("Average100", np.mean(score_history[-100:]), step=i)
             tf.summary.scalar("Critic Loss", avg_critic_loss, step=i)
             tf.summary.scalar("Actor Loss", avg_actor_loss, step=i)
+        critic_loss_history.append(avg_critic_loss)
+        actor_loss_history.append(avg_actor_loss)
     os.makedirs("results", exist_ok=True)
-    # Save plot with hyperparameter info
+    # Save plot with all hyperparameter info in the filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = (
-        f"results/pendulum_tau{config['agent']['tau']}_bs{config['agent']['batch_size']}.png"
+        f"results/pendulum_tau{config['agent']['tau']}_bs{config['agent']['batch_size']}"
+        f"_alpha{config['agent']['alpha']}_beta{config['agent']['beta']}_l1{config['agent']['layer1_size']}_{timestamp}.png"
     )
-    plotLearning(score_history, filename, window=100)
-    # Save raw scores for later comparison
+    plotLearning(
+        score_history,
+        filename,
+        window=100,
+        critic_losses=critic_loss_history,
+        actor_losses=actor_loss_history,
+    )
+    # Save raw scores for later comparison, also with all hyperparameter info
     score_file = (
-        f"results/pendulum_tau{config['agent']['tau']}_bs{config['agent']['batch_size']}_scores.npy"
+        f"results/pendulum_tau{config['agent']['tau']}_bs{config['agent']['batch_size']}"
+        f"_alpha{config['agent']['alpha']}_beta{config['agent']['beta']}_l1{config['agent']['layer1_size']}_{timestamp}_scores.npy"
     )
     np.save(score_file, np.array(score_history))
 
