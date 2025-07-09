@@ -1,4 +1,4 @@
-# ddpg-paper-reimplementation
+# DDPG: Deep Deterministic Policy Gradient Reimplementation in TensorFlow 2.x
 
 ![Build](https://img.shields.io/badge/build-passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10-blue)
