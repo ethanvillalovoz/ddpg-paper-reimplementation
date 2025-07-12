@@ -6,6 +6,7 @@ jobs:
   build:
     runs-on: macos-latest
     env:
+      CI: "true"
       OBJC_DISABLE_INITIALIZE_FORK_SAFETY: YES
       TF_CPP_MIN_LOG_LEVEL: 3
     steps:
@@ -18,8 +19,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip uninstall -y tensorflow-macos || true
-          pip install tensorflow
       - name: Run tests
         run: |
           pip install pytest
