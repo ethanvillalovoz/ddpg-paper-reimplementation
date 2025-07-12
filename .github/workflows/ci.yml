@@ -5,6 +5,9 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: macos-latest
+    env:
+      OBJC_DISABLE_INITIALIZE_FORK_SAFETY: YES
+      TF_CPP_MIN_LOG_LEVEL: 3
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
