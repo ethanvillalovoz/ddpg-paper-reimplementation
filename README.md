@@ -11,6 +11,14 @@ A clean, modular reimplementation of "Continuous Control with Deep Reinforcement
 
 ---
 
+## 🚦 CI/CD Status
+This project now features **Continuous Integration (CI)** and **Continuous Deployment (CD)** via GitHub Actions:
+- All pushes and pull requests are automatically tested on macOS runners.
+- Documentation is automatically deployed to GitHub Pages after each update to `main`.
+- TensorFlow-dependent tests are skipped on CI due to macOS runner limitations.
+
+---
+
 ## 📖 Description
 This project implements the Deep Deterministic Policy Gradient (DDPG) algorithm, a model-free, off-policy actor-critic method for continuous control. It features:
 - Modular codebase (separate agent, networks, buffer, noise, wrappers)
@@ -19,6 +27,7 @@ This project implements the Deep Deterministic Policy Gradient (DDPG) algorithm,
 - Hyperparameter sweeps and result comparison
 - Unit tests for all modules
 - Reproducibility (seed control, config/version logging)
+- **Automated CI/CD**: Continuous Integration and Deployment with GitHub Actions for testing and documentation.
 
 ---
 

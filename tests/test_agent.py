@@ -1,5 +1,6 @@
-import sys
 import os
+
+# Skip TensorFlow-dependent tests on macOS CI due to known segfaults
 if os.environ.get("CI") == "true":
     import pytest
     pytest.skip("Skipping TensorFlow tests on macOS CI due to segfaults", allow_module_level=True)
@@ -12,7 +13,9 @@ from env_wrappers import NormalizedEnv
 
 class TestAgent(unittest.TestCase):
     def setUp(self):
+        # Create a normalized Pendulum environment for testing
         self.env = NormalizedEnv(gym.make("Pendulum-v1"))
+        # Initialize the DDPG agent with test hyperparameters
         self.agent = Agent(
             alpha=0.0001,
             beta=0.001,
@@ -28,11 +31,13 @@ class TestAgent(unittest.TestCase):
         )
 
     def test_choose_action(self):
+        """Test that the agent returns a valid action shape."""
         obs, _ = self.env.reset()
         action = self.agent.choose_action(obs)
         self.assertEqual(action.shape, (1,))
 
     def test_remember_and_learn(self):
+        """Test the agent's memory and learning step."""
         obs, _ = self.env.reset()
         action = self.agent.choose_action(obs)
         new_obs, reward, terminated, truncated, _ = self.env.step(action)
